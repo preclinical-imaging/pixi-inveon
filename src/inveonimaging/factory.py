@@ -912,6 +912,8 @@ class Factory:
 
     def create_image_pixel_module(self, inveon_image: InveonImage, include_pixels=True,
                                   include_all_pixels=True) -> ImagePixelModule:
+        # TODO Fix hard coding
+        # TODO Fix assumption that data from Inveon is 2 byte integer
         samples_per_pixel = 1
         photometric_interpretation = "MONOCHROME2"
         rows = inveon_image.get_metadata_element("y_dimension")
@@ -1183,6 +1185,7 @@ class Factory:
 
         # C.8.16.2 Common CT/MR and Photoacoustic Image Description Macro
         # https://dicom.nema.org/medical/dicom/current/output/html/part03.html#table_C.8-131
+        # TODO fix hard coded values
         pixel_representation = "MONOCHROME"
         volumetric_properties = "VOLUME"
         volume_based_calculation_technique = "NONE"

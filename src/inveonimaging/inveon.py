@@ -4,7 +4,7 @@ import datetime
 class InveonFrame:
     def __init__(
             self,
-            frame_number: str):
+            frame_number:str):
         self.frame_number = frame_number
         self.metadata = {}
 
@@ -19,7 +19,7 @@ class InveonFrame:
 class InveonImage:
     def __init__(
             self,
-            name: str,
+            name:str,
             base_path=None):
         self.name = name
         self.base_path     = base_path
@@ -40,7 +40,7 @@ class InveonImage:
             self.pixel_fh.close();
             self.pixel_fh = None
 
-    def add_frame(self, frame_index: str, frame:InveonFrame):
+    def add_frame(self, frame_index:str, frame:InveonFrame):
         self.frames[frame_index] = frame
 
     def get_frame(self, frame_index:str):
@@ -63,7 +63,7 @@ class InveonImage:
 
         return rtn
 
-    def get_frame_metadata_element(self, index: int, element_name: str) -> str:
+    def get_frame_metadata_element(self, index:int, element_name:str) -> str:
         inveon_frame_instance = self.get_frame(str(index))
         return inveon_frame_instance.get_metadata_element(element_name)
 
@@ -82,7 +82,7 @@ class InveonImage:
         return self
 
 
-    def parse_frame_header_line(self, line: str) -> None:
+    def parse_frame_header_line(self, line:str) -> None:
         if (line.startswith("#")):
             return
 
@@ -108,7 +108,7 @@ class InveonImage:
 
         self.add_frame(self.current_frame, frame)
 
-    def parse_header_line(self, line: str) -> None:
+    def parse_header_line(self, line:str) -> None:
         if (line.startswith("#")):
             return
 
@@ -134,7 +134,7 @@ class InveonImage:
             self.process_multi_token_elements(tokens[0], line)
 
 
-    def process_mapped_elements(self, token: str, value: str) -> None:
+    def process_mapped_elements(self, token:str, value:str) -> None:
         coded_elements = {"model": "CODED_MODEL", "modality": "CODED_MODALITY",
                           "modality_configuration": "CODED_MODALITY_CONFIGURATION",
                           "acquisition_mode": "CODED_ACQUISITION_MODE",
@@ -231,7 +231,7 @@ class InveonImage:
                 self.metadata[mapped_key] = code_table[local_key]
 
 
-    def process_multi_token_elements(self, token: str, line: str) -> None:
+    def process_multi_token_elements(self, token:str, line:str) -> None:
         if (token == "scan_time"):
             self.process_scan_time(line)
         elif (token == "x_filter") :
@@ -241,7 +241,7 @@ class InveonImage:
         elif (token == "z_filter") :
             self.process_xyz_filter(line)
 
-    def process_scan_time(self, line: str) -> None:
+    def process_scan_time(self, line:str) -> None:
         month_map = {
             "Jan": "01",
             "Feb": "02",
@@ -269,7 +269,7 @@ class InveonImage:
         self.metadata["scan_time_date"] = date_string
         self.metadata["scan_time_time"] = time_string
 
-    def process_xyz_filter(self, line: str) -> None:
+    def process_xyz_filter(self, line:str) -> None:
         filter_map = {
             "x_filter:0": "No filter",
             "x_filter:1": "Ramp filter (backprojection) or no filter",
@@ -301,19 +301,15 @@ class InveonImage:
         cutoff_value = tokens[2]
 
         local_key = keyword + ":" + filter_index
-#        print(f"Local Key: {local_key}" )
         if (local_key in filter_map):
             filter_name = filter_map[local_key]
-#            print(f"{local_key} {filter_name} {cutoff_value}")
             new_filter_comments = tokens[0] + ", " + filter_name + " cutoff, " + cutoff_value
-#            print(f"XX {new_filter_comments}")
 
             image_comments = self.metadata["ImageComments"]
             if (image_comments == None):
                 image_comments = new_filter_comments
             else :
                 image_comments = image_comments + "; " + new_filter_comments
-#            print(f"Image comments {image_comments}")
             self.metadata["ImageComments"] = image_comments
 
 
