@@ -1,0 +1,38 @@
+[build-system]
+requires = ["flit_core >=3.2,<4", "mypy", "pytest", "twine", "wheel"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "inveonimaging"
+authors = [ { name = "Stephen M. Moore", email = "moore.stephen.m@wustl.edu" } ]
+
+classifiers=[
+    "License :: OSI Approved :: Apache Software License",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Software Development :: Libraries"
+]
+
+dependencies = [
+    "pydicom=2.4.0"]
+description = "Command line tool for operations on files produced by Siemens Inveon scanner."
+# dynamic = [ "version" ]
+keywords = ["inveon, dicom, python, medical, imaging"]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.10"
+version = "0.0.2"
+
+[project.scripts]
+
+[options]
+exclude = "test"
+
+[tool.setuptools.dynamic]
