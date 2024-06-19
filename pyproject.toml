@@ -21,7 +21,7 @@ classifiers=[
 ]
 
 dependencies = [
-    "pydicom=2.4.0"]
+    "pydicom==2.4.0"]
 description = "Command line tool for operations on files produced by Siemens Inveon scanner."
 # dynamic = [ "version" ]
 keywords = ["inveon, dicom, python, medical, imaging"]
