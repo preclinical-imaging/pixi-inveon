@@ -652,9 +652,14 @@ class Factory:
         return mergeDatasets(image_plane_module, image_pixel_module, ds)
 
     def create_patient_module(self, inveon_image: InveonImage) -> PatientModule:
-        manufacturer = inveon_image.get_metadata_element("manufacturer")
 
-        m = PatientModule(manufacturer)
+        # TODO Replace with real values
+        patient_name = ""
+        patient_id   = ""
+        patient_dob  = ""
+        patient_sex  = ""
+
+        m = PatientModule(patient_name,patient_id,patient_dob,patient_sex)
         return m
 
     def create_general_study_module(self, inveon_image: InveonImage) -> GeneralStudyModule:
