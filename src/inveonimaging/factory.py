@@ -23,7 +23,7 @@ class Factory:
         self.study_instance_uid = None
         self.series_number      = 1
         self.instance_number    = 1
-        self.file_prefix_map = {}
+        self.file_prefix_map    = {}
 
     def get_series_number(self) -> int:
         return self.series_number
@@ -432,7 +432,7 @@ class Factory:
         general_image = self.create_general_image_module(inveon_image)
         general_reference = None
         image_plane = self.create_image_plane_module(inveon_image)
-        image_pixel = self.create_image_pixel_module(inveon_image)
+        image_pixel = self.create_image_pixel_module(inveon_image, False)
         device = None
         specimen = None
         pet_image = self.create_pet_image_module(inveon_image)
@@ -1001,14 +1001,14 @@ class Factory:
 #        print(f"Time index {time_index} Scale Factor {scale_factor} Calibration Factor {calibration_factor} Isotope Branching Function {isotope_branching_fraction} Scale {scale}")
 
         float_pixels = numpy.fromfile(inveon_image.get_pixel_fh(), numpy.float32, rows*columns, "", 0)
-#        print(f"Instance Number {self.instance_number} Float Pixels size {float_pixels.size}")
+
         min_float = numpy.min(float_pixels)
         max_float = numpy.max(float_pixels)
         print(f"{time_index} {self.instance_number-1} {min_float} {max_float}")
         print(f"MIN_FLOAT {min_float}")
         shifted_pixels = float_pixels - min_float
-        scaled_pixels = shifted_pixels * scale
-        s16_pixels   = numpy.array(scaled_pixels, numpy.int16)
+        scaled_pixels  = shifted_pixels * scale
+        s16_pixels     = numpy.array(scaled_pixels, numpy.int16)
 
         min_scaled = numpy.min(scaled_pixels)
         max_scaled = numpy.max(scaled_pixels)
