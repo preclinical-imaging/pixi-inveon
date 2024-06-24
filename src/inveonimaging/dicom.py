@@ -53,7 +53,8 @@ class GeneralSeriesModule:
         series_date:str,
         series_time:str,
         series_description:str,
-        patient_position:str
+        patient_position:str,
+        operators_name:str
     ):
         """
 
@@ -77,6 +78,7 @@ class GeneralSeriesModule:
         self.ds.SeriesDescription = series_description
         if patient_position is not None:
             self.ds.PatientPosition = patient_position
+        self.ds.OperatorsName = operators_name
 
     def get_dataset(self):
         return self.ds

@@ -1,6 +1,11 @@
 from pathlib import Path
 import os
 import numpy
+from dateutil.parser import *
+from dateutil.tz import *
+from dateutil.relativedelta import *
+from datetime import *
+
 import pydicom
 from pydicom.sequence import Sequence
 from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
@@ -68,12 +73,12 @@ class Factory:
 
         return None
 
-    def convert_to_standard_images(self, inveon_image: InveonImage, output_folder: str):
+    def convert_to_standard_images(self, inveon_image: InveonImage, overrides: {}, output_folder: str):
         modality_mapped = inveon_image.get_metadata_element("modality_mapped")
         if (modality_mapped == 'CT'):
-            self.create_write_dicom_files_ct(inveon_image, output_folder)
+            self.create_write_dicom_files_ct(inveon_image, overrides, output_folder)
         else:
-            self.create_write_dicom_files_pet(inveon_image, output_folder)
+            self.create_write_dicom_files_pet(inveon_image, overrides, output_folder)
 
         return None
 
@@ -107,7 +112,7 @@ class Factory:
         self.write_dataset(ds, output_path, self.determine_filename(ds, file_name))
         return None
 
-    def create_write_dicom_files_ct(self, inveon_image: InveonImage, output_path: str):
+    def create_write_dicom_files_ct(self, inveon_image: InveonImage, overrides: {}, output_path: str):
 
         self.create_output_folder(output_path, True)
         ct_common = self.create_ct_common_elements(inveon_image)
@@ -122,19 +127,19 @@ class Factory:
             instance_ds = mergeDatasets(ct_common, frame_ds)
             self.write_dataset(instance_ds, output_path, self.determine_filename(instance_ds, None))
 
-    def create_write_dicom_files_pet(self, inveon_image: InveonImage, output_path: str):
+    def create_write_dicom_files_pet(self, inveon_image: InveonImage, overrides: {}, output_path: str):
 
         self.create_output_folder(output_path, True)
         pet_common = self.create_pet_common_elements(inveon_image)
 
         z_dimension = int(inveon_image.get_metadata_element("z_dimension"))
         time_frames = int(inveon_image.get_metadata_element("time_frames"))
-        frame_count = z_dimension * time_frames
+        overrides_ds = self.create_override_dataset(overrides)
 
         for time_index in range(time_frames):
             for frame_index in range(z_dimension):
                 frame_ds = self.fill_pet_per_frame_data(inveon_image, time_index, frame_index)
-                instance_ds = mergeDatasets(pet_common, frame_ds)
+                instance_ds = mergeDatasets(pet_common, frame_ds, overrides_ds)
                 self.write_dataset(instance_ds, output_path, self.determine_filename(instance_ds, None))
 
     #        for frame_index in range(frame_count):
@@ -144,6 +149,19 @@ class Factory:
     #            frame_ds = self.fill_pet_per_frame_data(inveon_image, time_frame, frame_index)
     #            instance_ds = mergeDatasets(pet_common, frame_ds)
     #            self.write_dataset(instance_ds, output_path, self.determine_filename(instance_ds, None))
+
+    def create_override_dataset(self, overrides: {}) -> Dataset:
+        ds = Dataset()
+        if (overrides["patient_name"] is not None):
+            ds.PatientName = overrides["patient_name"]
+        if (overrides["patient_id"] is not None):
+            ds.PatientID = overrides["patient_id"]
+        if (overrides["patient_birthdate"] is not None):
+            ds.PatientBirthDate = overrides["patient_birthdate"]
+        if (overrides["patient_sex"] is not None):
+            ds.PatientSex = overrides["patient_sex"]
+
+        return ds
 
     def create_output_folder(self, folder: str, must_be_empty: bool) -> None:
         if (os.path.exists(folder)):
@@ -621,12 +639,25 @@ class Factory:
         z_dimension = int(inveon_image.get_metadata_element("z_dimension"))
 #        instance_number = (time_index * z_dimension) + frame_index + 1
 
+        scan_time_time = inveon_image.get_metadata_element("scan_time_time")
+        scan_time_date = inveon_image.get_metadata_element("scan_time_date")
+        dt = parse(f"{scan_time_date} {scan_time_time}")
+        print(dt)
+        frame_start      = inveon_image.get_frame_metadata_element(time_index, "frame_start")
+        acquisition_date_time = dt + relativedelta(seconds=float(frame_start))
+
+        acquisition_time = acquisition_date_time.hour * 10000 + acquisition_date_time.minute * 100 + acquisition_date_time.second
+        formatted_acquisition_time = f"{acquisition_time:0.6f}"
+
+        print(
+            f"{formatted_acquisition_time} {acquisition_date_time} {acquisition_date_time.year} / {acquisition_date_time.hour} / {acquisition_date_time.minute} / {acquisition_date_time.second}")
 
         ds = Dataset()
         ds.InstanceNumber = self.get_instance_number()
         self.increment_instance_number()
 
-        ds.SOPInstanceUID = generate_uid()
+        ds.SOPInstanceUID  = generate_uid()
+        ds.AcquisitionTime = formatted_acquisition_time
 
         image_plane_module = self.create_image_plane_module(inveon_image, frame_index)
         image_pixel_module = self.create_image_pixel_module(inveon_image, True, False, time_index)
@@ -668,9 +699,13 @@ class Factory:
         study_date = inveon_image.get_metadata_element("scan_time_date")
         study_time = inveon_image.get_metadata_element("scan_time_time")
         referring_phys = inveon_image.get_metadata_element("investigator")
-        study_id = "Study-ID"
+        study_id = inveon_image.get_metadata_element("study_identifier")
+        if (study_id is not None):
+            study_id = study_id[0:16]
         accession_number = ""
         study_description = inveon_image.get_metadata_element("study")
+        if (study_description is None or study_description == ""):
+            study_description = inveon_image.name
 
         m = GeneralStudyModule(study_instance_uid,
                                study_date,
@@ -700,12 +735,13 @@ class Factory:
         series_description = inveon_image.get_metadata_element("acquisition_mode_mapped")
         subject_orientation_mapped = inveon_image.get_metadata_element("subject_orientation_mapped")
         patient_position = None
+        operators_name             = inveon_image.get_metadata_element("operator")
 
         if modality != "PT" and subject_orientation_mapped != None and subject_orientation_mapped != "":
             patient_position = subject_orientation_mapped
 
         m = GeneralSeriesModule(modality, series_instance_uid, laterality, series_number, series_date, series_time,
-                                series_description, patient_position)
+                                series_description, patient_position, operators_name)
         return m
 
     def create_pet_series_module(self, inveon_image: InveonImage) -> PETSeriesModule:

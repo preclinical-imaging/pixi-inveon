@@ -29,6 +29,15 @@ def find_img_files(input_folder: str):
 
     return rtn
 
+def construct_overrides(my_parser:argparse.Namespace) -> {}:
+    overrides = {}
+    overrides["patient_name"] = my_parser.patient_name
+    overrides["patient_id"]   = my_parser.patient_id
+    overrides["patient_birthdate"] = my_parser.patient_birthdate
+    overrides["patient_sex"] = my_parser.patient_sex
+    overrides["patient_sex"] = my_parser.patient_sex
+
+    return overrides
 
 # Arguments:
 #              Input Inveon .img file (with an appropriate .hdr file)
@@ -37,25 +46,35 @@ def find_img_files(input_folder: str):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Inveon native .img/.hdr file to DICOM original")
-    parser.add_argument("InveonFolder",                     help="Path to Inveon .hdr/.img file(s)")
-    parser.add_argument("OutputFolder",                     help="Path to output folder for DICOM files")
-    parser.add_argument('-c', '--ct',    dest='ct_prefix',  help="Prefix for a CT file")
-    parser.add_argument('-p', '--pet',   dest='pet_prefix', help="Prefix for a PET file")
-    parser.add_argument('-f', '--file',                     help="Name of output file for multiframe output")
+    parser.add_argument("InveonFolder",                                      help="Path to Inveon .hdr/.img file(s)")
+    parser.add_argument("OutputFolder",                                      help="Path to output folder for DICOM files")
+    parser.add_argument('-c', '--ct',               dest='ct_prefix',        help="Prefix for a CT file")
+    parser.add_argument('-p', '--pet',              dest='pet_prefix',       help="Prefix for a PET file")
+    parser.add_argument('-f', '--file',                                      help="Name of output file for multiframe output")
     parser.add_argument('-l', '--legacyconverted', action='store_true')
     parser.add_argument('-m', '--multiframe',      action='store_true')
+    parser.add_argument('-s', '--studydescription', dest='study_description', help="Set DICOM StudyDescription")
+    parser.add_argument(      '--patientname',      dest='patient_name',      help="Set DICOM PatientName")
+    parser.add_argument(      '--patientid',        dest='patient_id',        help="Set DICOM PatientID")
+    parser.add_argument(      '--patientdob',       dest='patient_birthdate', help="Set DICOM PatientBirthDate")
+    parser.add_argument(      '--patientsex',       dest='patient_sex',       help="Set DICOM PatientSex")
     args = parser.parse_args()
+    overrides = construct_overrides(args)
 
     factory = Factory()
     factory.generate_study_instance_uid()
     factory.add_file_prefix("CT",  args.ct_prefix)
-    factory.add_file_prefix("PxT",  args.pet_prefix)
+    factory.add_file_prefix("PT",  args.pet_prefix)
+
+    study_description = None
+    if (args.study_description is not None):
+        study_description = args.study_description
 
     img_files = find_img_files(args.InveonFolder)
     for f in img_files:
         series_number = factory.get_series_number()
 
-        inveon_image: InveonImage = InveonImage("unknown", f).parse_header()
+        inveon_image: InveonImage = InveonImage(study_description, f).parse_header()
         output_folder: str = os.path.join(args.OutputFolder, str(series_number))
         if (args.multiframe) :
             print(f"Multiframe {f} {output_folder}")
@@ -66,7 +85,7 @@ if __name__ == '__main__':
             factory.convert_to_legacy_converted_multiframe(inveon_image, output_folder, args.file)
         else:
             print (f"Standard SOP classes, single frame {f} {output_folder}")
-            factory.convert_to_standard_images(inveon_image, output_folder)
+            factory.convert_to_standard_images(inveon_image, overrides, output_folder)
         
         factory.increment_series_number()
 
