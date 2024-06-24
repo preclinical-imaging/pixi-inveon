@@ -37,4 +37,8 @@
 ## General
 1. Need a review of String / Integer variables. We are inconsistent in usage
 1. Need a way to add subject information (Name, ID, DOB, Sex) from the command line
+1. Standard CT and PET need minor review. The enhanced and legacy enhanced images need major review.
 1. Bonus points for handling multi-subject data per the DICOM Standard
+1. Review the name of the package. The Github project is pixi-inveon, and that matches other PIXI software. We have a package name that is inveondicom.
+1. No provision yet for handling NM images as opposed to PET
+1. Need a review of how slice location is calculated.

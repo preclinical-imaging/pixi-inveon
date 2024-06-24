@@ -63,6 +63,10 @@ class InveonImage:
 
         return rtn
 
+
+    def get_metadata(self):
+        return self.metadata
+
     def get_frame_metadata_element(self, index:int, element_name:str) -> str:
         inveon_frame_instance = self.get_frame(str(index))
         return inveon_frame_instance.get_metadata_element(element_name)

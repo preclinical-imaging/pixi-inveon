@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import numpy
 import pydicom
 from pydicom.sequence import Sequence
 from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
@@ -628,7 +629,7 @@ class Factory:
         ds.SOPInstanceUID = generate_uid()
 
         image_plane_module = self.create_image_plane_module(inveon_image, frame_index)
-        image_pixel_module = self.create_image_pixel_module(inveon_image, True, False)
+        image_pixel_module = self.create_image_pixel_module(inveon_image, True, False, time_index)
         pet_image_module   = self.create_pet_image_module(inveon_image, time_index, frame_index)
         return mergeDatasets(image_plane_module, image_pixel_module, pet_image_module, ds)
 
@@ -916,7 +917,7 @@ class Factory:
         return f"0\\0\\{z_position:.6f}"
 
     def create_image_pixel_module(self, inveon_image: InveonImage, include_pixels=True,
-                                  include_all_pixels=True) -> ImagePixelModule:
+                                  include_all_pixels=True, time_index=0) -> ImagePixelModule:
         # TODO Fix hard coding
         # TODO Fix assumption that data from Inveon is 2 byte integer
         samples_per_pixel = 1
@@ -929,13 +930,16 @@ class Factory:
         pixel_representation = 1
 
         pixel_data = None
+#        if (include_pixels):
+#            fh = inveon_image.get_pixel_fh();
+#            if (include_all_pixels):
+#                pixel_data = bytes(fh.read())
+#                inveon_image.close_pixel_file();
+#            else:
+#                pixel_data = bytes(fh.read(int(rows) * int(columns) * 2))
+
         if (include_pixels):
-            fh = inveon_image.get_pixel_fh();
-            if (include_all_pixels):
-                pixel_data = bytes(fh.read())
-                inveon_image.close_pixel_file();
-            else:
-                pixel_data = bytes(fh.read(int(rows) * int(columns) * 2))
+            pixel_data = self.read_normalize_pixel_data(inveon_image, include_all_pixels, time_index)
 
         m = ImagePixelModule(
             samples_per_pixel,
@@ -949,6 +953,74 @@ class Factory:
             pixel_data)
 
         return m
+
+
+    def read_normalize_pixel_data(self, inveon_image: InveonImage, include_all_pixels, time_index):
+        data_type = int(inveon_image.get_metadata_element("data_type"))
+        rtn_pixels = None
+        match data_type:
+            case 2:
+                return self.read_2byte_integer_pixels(inveon_image, include_all_pixels)
+            case 4:
+                return self.read_normalize_4byte_float_pixels(inveon_image, include_all_pixels, time_index)
+            case _:
+                raise Exception(f"Unsupported data_type {data_type} when trying to read pixel data")
+
+    def read_2byte_integer_pixels(self, inveon_image: InveonImage, include_all_pixels):
+        rows    = int(inveon_image.get_metadata_element("y_dimension"))
+        columns = int(inveon_image.get_metadata_element("x_dimension"))
+        pixel_data = None
+        fh = inveon_image.get_pixel_fh();
+        if (include_all_pixels):
+            pixel_data = bytes(fh.read())
+            inveon_image.close_pixel_file();
+        else:
+            pixel_data = bytes(fh.read(rows * columns * 2))
+
+        return pixel_data
+
+
+    # TODO debug this method
+    def read_normalize_4byte_float_pixels(self,inveon_image: InveonImage, include_all_pixels, time_index):
+        rows        = int(inveon_image.get_metadata_element("y_dimension"))
+        columns     = int(inveon_image.get_metadata_element("x_dimension"))
+        z_dimension = int(inveon_image.get_metadata_element("z_dimension"))
+        time_frames = int(inveon_image.get_metadata_element("time_frames"))
+
+        scale_factor               = float(inveon_image.get_frame_metadata_element(time_index, "scale_factor"))
+        calibration_factor         = float(inveon_image.get_metadata_element("calibration_factor"))
+        isotope_branching_fraction = float(inveon_image.get_metadata_element("isotope_branching_fraction"))
+        minimum                    = float(inveon_image.get_frame_metadata_element(time_index, "minimum"))
+        maximum                    = float(inveon_image.get_frame_metadata_element(time_index, "maximum"))
+
+        #scale = scale_factor*calibration_factor/isotope_branching_fraction
+
+        #max_scaled_value = (maximum - minimum) * scale
+        scale = 32766. / (maximum - minimum)
+                #* (32766. / maximum - minimum);
+#        print(f"Time index {time_index} Scale Factor {scale_factor} Calibration Factor {calibration_factor} Isotope Branching Function {isotope_branching_fraction} Scale {scale}")
+
+        float_pixels = numpy.fromfile(inveon_image.get_pixel_fh(), numpy.float32, rows*columns, "", 0)
+#        print(f"Instance Number {self.instance_number} Float Pixels size {float_pixels.size}")
+        min_float = numpy.min(float_pixels)
+        max_float = numpy.max(float_pixels)
+        print(f"{time_index} {self.instance_number-1} {min_float} {max_float}")
+        print(f"MIN_FLOAT {min_float}")
+        shifted_pixels = float_pixels - min_float
+        scaled_pixels = shifted_pixels * scale
+        s16_pixels   = numpy.array(scaled_pixels, numpy.int16)
+
+        min_scaled = numpy.min(scaled_pixels)
+        max_scaled = numpy.max(scaled_pixels)
+        z = (maximum-minimum)*scale
+        min_int = numpy.min(s16_pixels)
+        max_int = numpy.max(s16_pixels)
+        print(f"{time_index} SCALAR {scale}")
+        print(f"{time_index} MIN_SCALED {min_scaled}")
+        print(f"{time_index} MAX_SCALED {max_scaled:09.3f} Z {z}")
+        print(f"Minimum {minimum} Maximum {maximum} {min_int} {max_int}")
+
+        return s16_pixels.tobytes()
 
     def create_multiframe_functional_groups_module(self, inveon_image: InveonImage) -> ImagePixelModule:
         content_date = inveon_image.get_metadata_element("scan_time_date")
@@ -1139,12 +1211,12 @@ class Factory:
         rescale_slope = "1.217"
 
         # These are OK
-        frame_reference_time = self.calculate_FrameReferenceTime(inveon_image, time_index)
-        image_index = self.calculate_ImageIndex(inveon_image, time_index, frame_index)
-        acquisition_date = inveon_image.get_metadata_element("scan_time_date")
-        acquisition_time = inveon_image.get_metadata_element("scan_time_time")
+        frame_reference_time  = self.calculate_FrameReferenceTime(inveon_image, time_index)
+        image_index           = self.calculate_ImageIndex(inveon_image, time_index, frame_index)
+        acquisition_date      = inveon_image.get_metadata_element("scan_time_date")
+        acquisition_time      = inveon_image.get_metadata_element("scan_time_time")
         actual_frame_duration = self.calculate_ActualFrameDuration(inveon_image, time_index, frame_index)
-        decay_factor = self.calculate_DecayFactor(inveon_image, time_index)
+        decay_factor          = self.calculate_DecayFactor(inveon_image, time_index)
 
         m = PETImageModule(
             image_type,
