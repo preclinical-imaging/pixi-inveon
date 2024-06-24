@@ -83,4 +83,4 @@ This produces (where xxxxxx is the generated DICOM Intance Number)
 
 
 # Notes
-* There are known [issues](issues)
+* There are known [issues](issues.md)
