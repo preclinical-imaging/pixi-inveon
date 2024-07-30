@@ -41,7 +41,8 @@ See https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CI
 |---------|------------|---------------|--------------|
 | F-18    | C-111A1    | SNM3          | ^18^Fluorine |
 
-
+### PWR Multi-Gated Acqusition
+ - None
 
 ### NM/PET Patient Orientation
 
@@ -84,3 +85,44 @@ See https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CI
 
 TODO: Need to harmonize generated UID across the PET and CT scans and make sure the same Frame of Reference is used. Today, these are separate, so no automatic registration is possible.
 
+### Synchronization
+ - None
+
+### Equipment
+ - TODO
+
+### General Acquisition
+ - TODO
+
+### General Image
+ - TODO
+
+### General Reference
+ - None
+
+ ### Image Plane
+ - TODO
+
+### Image Pixel
+ - TODO
+
+### Device
+ - None
+
+### Specimen
+ - None
+
+### PET Image
+ - TODO
+
+### VOI LUT
+ - None
+
+### Acquisition Context
+ - None
+
+### SOP Common
+ - TODO
+
+### Common Instance Reference
+ - TODO
