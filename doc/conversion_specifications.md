@@ -24,6 +24,21 @@
 
 ### PET Isotope
 
+| Attribute Nam         | Tag              | Conversion                 |
+|-----------------------|------------------|----------------------------|
+| Radiopharmaceutical Information Sequence | (0054,0016) |              |
+| >Radionuclide Code Sequence              | (0054,0300) |              |
+| >>Code Value                             | (0008,0100) | from isotope |
+| >>Coding Scheme Designator               | (0008,0102) |              |
+| >>Code Meaning                           | (0008,0104) |              |
+
+Map of isotope to Radionuclide Code Sequencee
+
+| isotope | Code Value | Coding Scheme | Code Meaning |
+|---------|------------|---------------|--------------|
+| F-18    | C-111A1    | SNM3          | ^18^Fluorine |
+
+
 
 ### NM/PET Patient Orientation
 
