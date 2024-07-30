@@ -24,15 +24,16 @@
 
 ### PET Isotope
 
-| Attribute Nam         | Tag              | Conversion                 |
-|-----------------------|------------------|----------------------------|
+| Attribute Nam                            | Tag         | Conversion   |
+|------------------------------------------|-------------|--------------|
 | Radiopharmaceutical Information Sequence | (0054,0016) |              |
 | >Radionuclide Code Sequence              | (0054,0300) |              |
 | >>Code Value                             | (0008,0100) | from isotope |
 | >>Coding Scheme Designator               | (0008,0102) |              |
 | >>Code Meaning                           | (0008,0104) |              |
 
-Map of isotope to Radionuclide Code Sequencee
+Map of isotope to Radionuclide Code Sequence.
+See https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CID_4020
 
 | isotope | Code Value | Coding Scheme | Code Meaning |
 |---------|------------|---------------|--------------|
@@ -41,5 +42,35 @@ Map of isotope to Radionuclide Code Sequencee
 
 
 ### NM/PET Patient Orientation
+
+| Attribute Nam                             | Tag         | Conversion               |
+|-------------------------------------------|-------------|--------------------------|
+| Patient Orientation Code Sequence         | (0054,0410) |                          |
+| >Code Value                               | (0008,0100) | 102538003                |
+| >Coding Scheme Designator                 | (0008,0102) | SCT                      |
+| >Code Meaning                             | (0008,0104) | Recumbent                |
+| Patient Gantry Relationship Code Sequence | (0054,0410) |                          |
+| >Code Value                               | (0008,0100) | from subject_orientation |
+| >Coding Scheme Designator                 | (0008,0102) |                          |
+| >Code Meaning                             | (0008,0104) |                          |
+
+Map of subject_orientation to Patient Gantry Relationship Code Sequence.
+See https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CID_21
+
+| subject_orientation              | Code Value | Coding Scheme | Code Meaning |
+|----------------------------------|------------|---------------|--------------|
+| 0 - Unknown subject orientation  | No code    |
+| 1 - Feet first, prone            | 102541007  | SCT           | feet-first   |
+| 2 - Head first, prone            | 102540008  | SCT           | headfirst    |
+| 3 - Feet first, supine           | 102541007  | SCT           | feet-first   |
+| 4 - Head first, supine           | 102540008  | SCT           | headfirst    |
+| 5 - Feet first, right            | 102541007  | SCT           | feet-first   |
+| 6 - Head first, right            | 102540008  | SCT           | headfirst    |
+| 7 - Feet first, left             | 102541007  | SCT           | feet-first   |
+| 8 - Head first, left             | 102540008  | SCT           | headfirst    |
+
+
+
+| subject_orientation    | C-111A1    | SNM3          | ^18^Fluorine |
 
 ### Frame of Reference
