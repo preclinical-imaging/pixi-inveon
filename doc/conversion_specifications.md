@@ -95,21 +95,21 @@ TODO: Need to harmonize generated UID across the PET and CT scans and make sure 
 
 The value for Manufacturer's Model Name is of the form model:modality_configuration per the following mapping table:
 
-| Keyword  | Value | Mapped Value         |
-|----------|-------|----------------------|
-| model    |    0  | unknown              |
-| model    | 2000  | Primate              |
-| model    | 2001  | Rodent               |
-| model    | 2002  | microPET2            |
-| model    | 2500  | Focus_220            |
-| model    | 2501  | Focus_120            |
-| model    | 3000  | mCAT                 |
-| model    | 3500  | mCATII               |
-| model    | 4000  | mSPECT               |
-| model    | 5000  | Inveon_Dedicated_PET |
-| model    | 5001  | Inveon_MM_Platform   |
-| model    | 6000  | MR_PET_Head_Insert   |
-| model    | 8000  | Tuebingen_PET_MR     |
+| Keyword                | Value | Mapped Value         |
+|------------------------|-------|----------------------|
+| model                  |    0  | unknown              |
+| model                  | 2000  | Primate              |
+| model                  | 2001  | Rodent               |
+| model                  | 2002  | microPET2            |
+| model                  | 2500  | Focus_220            |
+| model                  | 2501  | Focus_120            |
+| model                  | 3000  | mCAT                 |
+| model                  | 3500  | mCATII               |
+| model                  | 4000  | mSPECT               |
+| model                  | 5000  | Inveon_Dedicated_PET |
+| model                  | 5001  | Inveon_MM_Platform   |
+| model                  | 6000  | MR_PET_Head_Insert   |
+| model                  | 8000  | Tuebingen_PET_MR     |
 | modality_configuration |    0 | Unknown                 |
 | modality_configuration | 3000 | mCAT                    |
 | modality_configuration | 3500 | mCATII                  |
@@ -134,16 +134,67 @@ For example: Inveon_MM_Platform:Inveon_MM_PET
 | Acquisition Time             | (0008,0032) | from scan_time_date           |
 
 ### General Image
- - TODO
+| Attribute Name               | Tag         | Conversion                    |
+|------------------------------|-------------|-------------------------------|
+| Instance Number              | (0020,0013) | increments from 1             |
+| Image Comments               | (0020,4000) | from x_filter, y_filter, z_filter. See below |
+
+The Image Comments element is created by combining values for x_filter, y_filter and z_filter. Up to three values are concatenated according to the values for x_filter, y_filter and z_filter from the Inveon header.
+
+| Filter index | Description                               |
+|--------------|-------------------------------------------|
+|       0      | No filter                                 |
+|       1      | Ramp filter (backprojection) or no filter |
+|       2      | First-order Butterworth window            |
+|       3      | Hanning window                            |
+|       4      | Hamming window                            |
+|       5      | Parzen window                             |
+|       6      | Shepp filter                              |
+|       7      | Second-order Butterworth window           |
 
 ### General Reference
  - None
 
  ### Image Plane
- - TODO
+| Attribute Name              | Tag         | Conversion                           |
+|-----------------------------|-------------|--------------------------------------|
+| Pixel Spacing               | (0028,0030) | from pixel_size_x and pixel_size_y   |
+| Image Orientation (Patient) | (0020,0037) | from subject_orientation. See below. |
+| Image Position (Patient)    | (0020,0032) | from pixel_size_z                    |
+| Slice Thickness             | (0018,0050) | pixel_size_z                         |
+
+Mapping Inveon subject_orientation to DICOM Image Orientation Patient
+| subject_orientation              | DICOM Image Orientation Patient |
+|----------------------------------|---------------------------------|
+| 0 - Unknown subject orientation  | ""                              |
+| 1 - Feet first, prone            |                                 |
+| 2 - Head first, prone            |                                 |
+| 3 - Feet first, supine           | -1\0\0\0\1\0                    |
+| 4 - Head first, supine           |                                 |
+| 5 - Feet first, right            |                                 |
+| 6 - Head first, right            |                                 |
+| 7 - Feet first, left             |                                 |
+| 8 - Head first, left             |                                 |
+
+TODO: Review the values for DICOM Subject Orientation and how they relate to Inveon subject_orientation.
 
 ### Image Pixel
- - TODO
+
+| Attribute Name              | Tag         | Conversion     |
+|-----------------------------|-------------|----------------|
+| Samples per Pixel           | (0028,0002) |      1         |
+| Photometric Interpretation  | (0028,0004) | MONOCHROME2    |
+| Rows                        | (0028,0010) | y_dimension    |
+| Columns                     | (0028,0011) | x_dimension    |
+| Bits Allocated              | (0028,0100) |     16  (1)    |
+| Bits Stored                 | (0028,0101) |     16         |
+| High Bit                    | (0028,0102) |     15         |
+| Pixel Representation        | (0028,0103) |      1  (2)    |
+| Pixel Data                  | (7FE0,0010) | from .img file |
+
+Notes:
+1. All pixels converted to 16 bit integers if not already in that format. For example, floating point values are converted.
+2. Pixel Representation is 2's complement
 
 ### Device
  - None
@@ -152,7 +203,30 @@ For example: Inveon_MM_Platform:Inveon_MM_PET
  - None
 
 ### PET Image
- - TODO
+NB: The DICOM Standard repeats some elements in this module already defined in the Image Pixel Module. In these cases, we use the value "Image Pixel" in the Conversion column.
+
+| Attribute Name              | Tag         | Conversion                               |
+|-----------------------------|-------------|------------------------------------------|
+| Image Type                  | (0008,0008) | ORIGINAL\PRIMARY                         |
+| Samples per Pixel           | (0028,0002) | Image Pixel                              |
+| Photometric Interpretation  | (0028,0002) | Image Pixel                              |
+| Bits Allocated              | (0028,0100) | Image Pixel                              |
+| Bits Stored                 | (0028,0101) | Image Pixel                              |
+| High Bit                    | (0028,0102) | Image Pixel                              |
+| Rescale Intercept           | (0028,1052) | 0                                        |
+| Rescale Slope               | (0028,1053) | 1.217                                    |
+| Frame Reference Time        | (0054,1300) | (frame_start + frame_duraction/2) * 1000 |
+| Image Index                 | (0054,1330) | In Error                                 |
+| Acquisition Date            | (0008,0022) | from scan_time_date                      |
+| Acquisition Time            | (0008,0032) | from scan_time_date                      |
+| Actual Frame Duration       | (0018,1242) | frame_duration * 1000                    |
+| Decay Factor                | (0054,1321) | decay_correction                         |
+
+ TODO:
+ 1. Review/repair hard-coded value for Image Type
+ 2. Review/repair hard-coded values for Rescale Intercept and Rescale Slope
+ 3. Review computed value for Image Index
+ 4. Is decay_correction the right value to use for DICOM Decay Factor (0054,1321)?
 
 ### VOI LUT
  - None
