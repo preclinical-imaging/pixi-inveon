@@ -1,5 +1,52 @@
 # Specifications for Inveon to DICOM Conversion
 
+## Open Issues (Priority Order)
+### Larger Issues
+1. We have software to create PET and CT images. Siemens documentation indicates they produce NM images, but we do not know how to identify/distinguish NM from PET data.
+
+1. Need to translate float pixel values for PET images to 16 bit integers for DICOM. At the same time, need to populate Rescale Intercept, Rescale Slope, and Units in a coherent fashion. Units for PET image pixels are defined here: https://dicom.nema.org/medical/dicom/current/output/html/part03.html#sect_C.8.9.1.1.3. The example I am working with uses units of BQML Becquerels/milliliter (Bq/ml, UCUM, "Becquerels/milliliter"). We also note from the sample I have that the Siemens software produces different slope values for images in the same series. I infer from this that their normalization is on a per slice basis or possibly on a few slices that are in the same position but offset by time. Could also be in the same time frame but offset by position.
+
+1. Image Orientation (Patient) (0020,0037) is defined as: *The direction cosines of the first row and the first column with respect to the patient. *. This should be mapped from subject_orientation. I do not know the mapping.
+
+1. Image Position (Patient) (0020,0032) is the X,Y,Z position of a plane. This should be synchronized across the CT and PET images and values should follow Siemens convention if possible. What I am doing now is not synchronized across the different scans and is not what Siemens is doing.
+
+1. Do we need to support Multi-Energy CT?
+
+1. No work has been done on gated studies. Do we need to support those?
+
+1. Inveon header has values for isotope and injected_compound. We are using isotope to create a coded entry in the Radionuclide Code Sequence. How should we use injected_compound?
+
+1. Do we want to add the Siemens private data for CT? It is described in their Conformance Statement.
+
+1. Do we want to add the Siemens private data for PET? It is described in their Conformance Statement.
+
+### Smaller Issues
+1. Decay Correction (0054,1102) can take on the values NONE, START, ADMIN. What is in the Inveon header that map to the correct values?
+
+1. Is decay_correction the right value to use for DICOM Decay Factor (0054,1321)?
+
+1. The mapping table from isotope to the code value in Radionuclide Code Sequence needs to be completed.
+
+1. Some code exists for Enhanced CT and Enhanced PET. That should be removed, and we should focus on traditional CT and PET images.
+
+1. Review the computed value for Image Index (0054,1330)
+
+1. Review how the values for Image Type (0008,0008) are determined.
+
+1. Current software accepts Patient/Subject Name, ID, DOB, Sex from command line. These values are available in the header, but is there a standard format so we can populate the DICOM header properly
+   - subject_date_of_birth
+   - subject_sex
+   - subject_identifier
+   - subject_genus
+   - subject_phenotype
+
+1. Patient Study Module. Nothing is included today.
+  - What is the format of subject_age so we can place this in the DICOM metadata?
+  - Do we want to map subject_length into the DICOM metadata (Patient's Size 0010,1020)
+  - Do we want to map subject_weight into the DICOM metadata (Patient's Weight 0010,1030)
+
+
+
 ## Common to All Modalities
 The modules below are common to CT and PET and are listed separately to avoid duplication.
 
@@ -39,13 +86,62 @@ TODO:
 | Study Description          | (0008,1030) | study                                  |
 
 ### Patient Study
- - TODO
+Consider:
+ - Patient's Age
+ - Patient's Weight
+ - Patient's Size
 
 ### Clinical Trial Study
  - None
 
 ### General Series
- - TODO
+| Attribute Name        | Tag         | Conversion                                |
+|-----------------------|-------------|-------------------------------------------|
+| Modality              | (0008,0060) | from modality, see table below            |
+| Series Instance UID   | (0020,000E) | generated                                 |
+| Series Number         | (0020,0011) | increments from 1                         |
+| Laterality            | (0020,0060) | ""                                        |
+| Series Date           | (0008,0021) | from scan_time_date                       |
+| Series Time           | (0008,0031) | from scan_time_date                       |
+| Series Description    | (0008,103E) | from acquisition mode, see table below    |
+| Patient Position      | (0018,5100) | from subject_orientation, see table below |
+| Operators' Name       | (0008,1070) | operator                                  |
+
+Mapping table from Inveon values to DICOM values
+| Keyword                | Value | Mapped Value                                      |
+|------------------------|-------|---------------------------------------------------|
+| modality               |    0  | PT                                                |
+| modality               |    1  | CT                                                |
+| acquisition_mode       |    0  | Unknown acquisition mode                          |
+| acquisition_mode       |    1  | Blank acquisition                                 |
+| acquisition_mode       |    2  | Emission acquisition                              |
+| acquisition_mode       |    3  | Dynamic acquisition                               |
+| acquisition_mode       |    4  | Gated acquisition                                 |
+| acquisition_mode       |    5  | Continuous bed motion acquisition                 |
+| acquisition_mode       |    6  | Singles transmission acquisition                  |
+| acquisition_mode       |    7  | Windowed coincidence transmission acquisition     |
+| acquisition_mode       |    8  | Non-windowed coincidence transmission acquisition |
+| acquisition_mode       |    9  | CT projection acquisition                         |
+| acquisition_mode       |   10  | CT calibration acquisition                        |
+| acquisition_mode       |   11  | SPECT planar projection acquisitio                |
+| acquisition_mode       |   12  | SPECT multi-projection acquisition                |
+| acquisition_mode       |   13  | SPECT calibration acquisition                     |
+| acquisition_mode       |   14  | SPECT tomography normalization acquisition        |
+| acquisition_mode       |   15  | SPECT detector setup acquisition                  |
+| acquisition_mode       |   16  | SPECT scout view acquisition                      |
+| acquisition_mode       |   17  | SPECT planar normalization acquisition            |
+| subject_orientation    |    0  | ""                                                |
+| subject_orientation    |    1  | FFP                                               |
+| subject_orientation    |    2  | HFP                                               |
+| subject_orientation    |    3  | FFS                                               |
+| subject_orientation    |    4  | HFS                                               |
+| subject_orientation    |    5  | FFDR                                              |
+| subject_orientation    |    6  | HFDR                                              |
+| subject_orientation    |    7  | FFDL                                              |
+| subject_orientation    |    8  | HFDL                                              |
+
+
+
 
 ### Clinical Trial Series
  - None
@@ -190,11 +286,8 @@ Table of supported SOP Class UIDs:
 | SOP Class UID                 | Storage SOP Class Name        |
 |-------------------------------|-------------------------------|
 | 1.2.840.10008.5.1.4.1.1.128   | PET                           |
-| 1.2.840.10008.5.1.4.1.1.128.1 | Legacy Converted Enhanced PET |
-| 1.2.840.10008.5.1.4.1.1.130   | Enhanced PET                  |
-| 1.2.840.10008.5.1.4.1.1.2     | CT
-| 1.2.840.10008.5.1.4.1.1.2.1   | Enhanced CT                   |
-| 1.2.840.10008.5.1.4.1.1.2.2   | Legacy Converted Enhanced CT  |
+| 1.2.840.10008.5.1.4.1.1.2     | CT                            |
+
 
 ### Overlay Plane
  - None
@@ -204,7 +297,6 @@ Table of supported SOP Class UIDs:
 
 ### Common Instance Reference
  - None
-
 
 
 ## CT Image
@@ -347,6 +439,7 @@ See https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CI
 
 TODO:
 1. We use the value from isotope here. There is also a header field for injected_compound. How should that be used?
+1. Finish the mapping table from isotope to coded valule
 
 ### PET Multi-Gated Acqusition
  - None
@@ -369,7 +462,7 @@ See https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CI
 
 | subject_orientation              | Code Value | Coding Scheme | Code Meaning |
 |----------------------------------|------------|---------------|--------------|
-| 0 - Unknown subject orientation  | No code    |
+| 0 - Unknown subject orientation  | No code    |               |              |
 | 1 - Feet first, prone            | 102541007  | SCT           | feet-first   |
 | 2 - Head first, prone            | 102540008  | SCT           | headfirst    |
 | 3 - Feet first, supine           | 102541007  | SCT           | feet-first   |
