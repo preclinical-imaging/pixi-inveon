@@ -229,21 +229,47 @@ See *Common to All Modalities* section for items not specific to CT. These modul
 
 
 ### Contrast/Bolus
-
-### CT Image (Module)
-
-### Multi-energy CT Image
-
-### Overlay Plane
  - None
 
-### VOI LUT
+### CT Image (Module)
+NB: The DICOM Standard repeats some elements in this module already defined in the Image Pixel Module. In these cases, we use the value "Image Pixel" in the Conversion column.
 
-### Common Instance Reference
+| Attribute Name              | Tag         | Conversion                      |
+|-----------------------------|-------------|---------------------------------|
+| Image Type                  | (0008,0008) | ORIGINAL\PRIMARY\AXIAL          |
+| Samples per Pixel           | (0028,0002) | Image Pixel                     |
+| Photometric Interpretation  | (0028,0004) | Image Pixel                     |
+| Bits Allocated              | (0028,0100) | Image Pixel                     |
+| Bits Stored                 | (0028,0101) | Image Pixel                     |
+| High Bit                    | (0028,0102) | Image Pixel                     |
+| Rescale Intercept           | (0028,1052) |       0                         |
+| Rescale Slope               | (0028,1053) |       1                         |
+| KVP                         | (0018,0060) | ct_xray_voltage                 |
+| Acquisition Number          | (0020,0012) |       1                         |
+| Distance Source to Detector | (0018,1110) | ct_source_to_detector * 10      |
+| Distance Source to Patient  | (0018,1111) | ct_source_to_crot * 10          |
+| X-Ray Tube Current          | (0018,1151) | ct_anode_current / 1000         |
+| Convolution Kernel          | (0018,1210) | from recon_algorithm. see below |
+
+The value for Convolution Kernel is mapped from the variable recon_algoritm per the following mapping table:
+
+| Keyword                | Value | Mapped Value                   |
+|------------------------|-------|--------------------------------|
+| recon_algorithm        |   0   | Unknown, or no, algorithm type |
+| recon_algorithm        |   1   | Filtered Backprojection        |
+| recon_algorithm        |   2   | OSEM2d                         |
+| recon_algorithm        |   3   | OSEM3d                         |
+| recon_algorithm        |   4   | 3D Reprojection                |
+| recon_algorithm        |   5   | Undefined                      |
+| recon_algorithm        |   6   | OSEM3D/MAP                     |
+| recon_algorithm        |   7   | MAPTR for transmission image   |
+| recon_algorithm        |   8   | MAP 3D reconstruction          |
+| recon_algorithm        |   9   | Feldkamp cone beam             |
 
 
 
-
+### Multi-energy CT Image
+ - None
 
 TODO: Do we want to add the Siemens private data for CT? It is described in their Conformance Statement.
 
