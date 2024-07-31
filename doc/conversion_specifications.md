@@ -28,7 +28,15 @@ TODO:
  - None
 
 ### General Study
- - TODO
+| Attribute Name             | Tag         | Conversion                             |
+|----------------------------|-------------|----------------------------------------|
+| Study Instance UID         | (0020,000D) | generated                              |
+| Study Date                 | (0008,0020) | from scan_time_date                    |
+| Study Time                 | (0008,0030) | from scan_time_date                    |
+| Referring Physician's Name | (0008,0090) | investigator                           |
+| Study ID                   | (0020,0010) | study_identifier (first 16 characters) |
+| Accession Number           | (0008,0050) | ""                                     |
+| Study Description          | (0008,1030) | study                                  |
 
 ### Patient Study
  - TODO
