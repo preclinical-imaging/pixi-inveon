@@ -1,76 +1,46 @@
 # Specifications for Inveon to DICOM Conversion
 
-## CT Image
+## Common to All Modalities
+The modules below are common to CT and PET and are listed separately to avoid duplication.
 
-## PET Image
+### Patient
+| Attribute Name        | Tag         | Conversion         |
+|-----------------------|-------------|--------------------|
+| Patient's Name        | (0010,0010) | From command line  |
+| Patient ID            | (0010,0020) | From command line  |
+| Patient's Birth Date  | (0010,0030) | From command line  |
+| Patient's Sex         | (0010,0040) | From command line  |
 
+Notes:
+1. We are not supporting multi-animal DICOM files (hotel sessions)
+2. We chose to accept the four demographic fields from the command line. We could grab one or more values from the Inveon header and maintain command line overrides.
+3. These fields are listed in the sample Inveon header files we have. We do not know if any format conversions are necessary.
+   - subject_date_of_birth
+   - subject_sex
+   - subject_identifier
+   - subject_genus
 
+TODO:
+1. Review what demographic fields could be pulled from the Inveon header
+2. As part of the review, determine if any format conversions are needed to satisfy the DICOM Standard.
 
-### PET Series
-
-| Attribute Name        | Tag         | Conversion                      |
-|-----------------------|-------------|---------------------------------|
-| Series Date           | (0008,0021) | from scan_date_time             |
-| Series Time           | (0008,0031) | from scan_date_time             |
-| Counts Source         | (0054,1002) | EMISSION                        |
-| Series Type (Value 1) | (0054,1000) | acquisition_mode:2 -> STATIC <br/> acquisition_mode:3 -> DYNAMIC <br/> acquisition_mode:4 -> GATED <br/> acquisition_mode:5 -> FULL BODY |
-| Series Type (Value 2) | (0054,1000) | file_type:5 -> IMAGE <br/>    |
-| Series Type (example) | (0054,1000) | DYNAMIC\IMAGE                   |
-| Number of Slices      | (0054,0081) | z_dimension                     |
-| Corrected Image       | (0028,0051) | Values added when one or more of the following are not empty: <br/>normalization_applied -> NORM <br/>attenuation_applied -> ATTN <br/>scatter_correction -> SCAT <br/>decay_correction_applied -> DECY <br/>deadtime_correction_applied -> DTM |
-| Decay Correction      | (0054,1102) | decay_correction_applied:(not 0) -> START <br/>else NONE</br>See TODO below |
-| Collimator Type       | 0018,1181   | ""                              |
-
-TODO: Decay Correction can have values other than START. Determine proper mapping.
-
-
-### PET Isotope
-
-| Attribute Name                           | Tag         | Conversion   |
-|------------------------------------------|-------------|--------------|
-| Radiopharmaceutical Information Sequence | (0054,0016) |              |
-| >Radionuclide Code Sequence              | (0054,0300) |              |
-| >>Code Value                             | (0008,0100) | from isotope |
-| >>Coding Scheme Designator               | (0008,0102) |              |
-| >>Code Meaning                           | (0008,0104) |              |
-
-Map of isotope to Radionuclide Code Sequence.
-See https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CID_4020
-
-| isotope | Code Value | Coding Scheme | Code Meaning |
-|---------|------------|---------------|--------------|
-| F-18    | C-111A1    | SNM3          | ^18^Fluorine |
-
-### PWR Multi-Gated Acqusition
+### Clinical Trial Subject
  - None
 
-### NM/PET Patient Orientation
+### General Study
+ - TODO
 
-| Attribute Name                            | Tag         | Conversion               |
-|-------------------------------------------|-------------|--------------------------|
-| Patient Orientation Code Sequence         | (0054,0410) |                          |
-| >Code Value                               | (0008,0100) | 102538003                |
-| >Coding Scheme Designator                 | (0008,0102) | SCT                      |
-| >Code Meaning                             | (0008,0104) | Recumbent                |
-| Patient Gantry Relationship Code Sequence | (0054,0410) |                          |
-| >Code Value                               | (0008,0100) | from subject_orientation |
-| >Coding Scheme Designator                 | (0008,0102) |                          |
-| >Code Meaning                             | (0008,0104) |                          |
+### Patient Study
+ - TODO
 
-Map of subject_orientation to Patient Gantry Relationship Code Sequence.
-See https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CID_21
+### Clinical Trial Study
+ - None
 
-| subject_orientation              | Code Value | Coding Scheme | Code Meaning |
-|----------------------------------|------------|---------------|--------------|
-| 0 - Unknown subject orientation  | No code    |
-| 1 - Feet first, prone            | 102541007  | SCT           | feet-first   |
-| 2 - Head first, prone            | 102540008  | SCT           | headfirst    |
-| 3 - Feet first, supine           | 102541007  | SCT           | feet-first   |
-| 4 - Head first, supine           | 102540008  | SCT           | headfirst    |
-| 5 - Feet first, right            | 102541007  | SCT           | feet-first   |
-| 6 - Head first, right            | 102540008  | SCT           | headfirst    |
-| 7 - Feet first, left             | 102541007  | SCT           | feet-first   |
-| 8 - Head first, left             | 102540008  | SCT           | headfirst    |
+### General Series
+ - TODO
+
+### Clinical Trial Series
+ - None
 
 ### Frame of Reference
 
@@ -202,7 +172,181 @@ Notes:
 ### Specimen
  - None
 
-### PET Image
+### SOP Common
+| Attribute Name       | Tag         | Conversion              |
+|----------------------|-------------|-------------------------|
+| SOP Class UID        | (0008,0016) | see table below         |
+| SOP Instance UID     | (0008,0018) | generated per image     |
+
+Table of supported SOP Class UIDs:
+| SOP Class UID                 | Storage SOP Class Name        |
+|-------------------------------|-------------------------------|
+| 1.2.840.10008.5.1.4.1.1.128   | PET                           |
+| 1.2.840.10008.5.1.4.1.1.128.1 | Legacy Converted Enhanced PET |
+| 1.2.840.10008.5.1.4.1.1.130   | Enhanced PET                  |
+| 1.2.840.10008.5.1.4.1.1.2     | CT
+| 1.2.840.10008.5.1.4.1.1.2.1   | Enhanced CT                   |
+| 1.2.840.10008.5.1.4.1.1.2.2   | Legacy Converted Enhanced CT  |
+
+### Overlay Plane
+ - None
+
+### VOI LUT
+ - TODO
+
+### Common Instance Reference
+ - None
+
+
+
+## CT Image
+
+See *Common to All Modalities* section for items not specific to CT. These modules are described above:
+
+| DICOM IE           | Module                    | Usage |
+|--------------------|---------------------------|-------|
+| Patient            | Patient                   |   M   |
+| Patient            | Clinical Trial Subject    |   U   |
+| Study              | General Study             |   M   |
+| Study              | Patient Study             |   U   |
+| Study              | Clinical Trial Study      |   U   |
+| Series             | General Series            |   M   |
+| Series             | Clinical Trial Series     |   U   |
+| Frame of Reference | Frame of Reference        |   M   |
+| Frame of Reference | Synchronization           |   C   |
+| Equipment          | General Equipment         |   M   |
+| Acquisition        | General Acquisition       |   M   |
+| Image              | General Image             |   M   |
+| Image              | General Reference         |   U   |
+| Image              | Image Plane               |   M   |
+| Image              | Image Pixel               |   M   |
+| Image              | Device                    |   U   |
+| Image              | Specimen                  |   U   |
+| Image              | Overlay Plane             |   U   |
+| Image              | VOI LUT                   |   U   |
+| Image              | SOP Common                |   M   |
+| Image              | Common Instance Reference |   U   |
+
+
+### Contrast/Bolus
+
+### CT Image (Module)
+
+### Multi-energy CT Image
+
+### Overlay Plane
+ - None
+
+### VOI LUT
+
+### Common Instance Reference
+
+
+
+
+
+TODO: Do we want to add the Siemens private data for CT? It is described in their Conformance Statement.
+
+## PET Image
+
+See *Common to All Modalities* section for items not specific to PET. These modules are described above:
+
+| DICOM IE           | Module                    | Usage |
+|--------------------|---------------------------|-------|
+| Patient            | Patient                   |   M   |
+| Patient            | Clinical Trial Subject    |   U   |
+| Study              | General Study             |   M   |
+| Study              | Patient Study             |   U   |
+| Study              | Clinical Trial Study      |   U   |
+| Series             | General Series            |   M   |
+| Series             | Clinical Trial Series     |   U   |
+| Frame of Reference | Frame of Reference        |   M   |
+| Frame of Reference | Synchronization           |   C   |
+| Equipment          | General Equipment         |   M   |
+| Acquisition        | General Acquisition       |   M   |
+| Image              | General Image             |   M   |
+| Image              | General Reference         |   U   |
+| Image              | Image Plane               |   M   |
+| Image              | Image Pixel               |   M   |
+| Image              | Device                    |   U   |
+| Image              | Specimen                  |   U   |
+| Image              | Overlay Plane             |   U   |
+| Image              | VOI LUT                   |   U   |
+| Image              | SOP Common                |   M   |
+| Image              | Common Instance Reference |   U   |
+
+
+
+### PET Series
+
+| Attribute Name        | Tag         | Conversion                      |
+|-----------------------|-------------|---------------------------------|
+| Series Date           | (0008,0021) | from scan_date_time             |
+| Series Time           | (0008,0031) | from scan_date_time             |
+| Counts Source         | (0054,1002) | EMISSION                        |
+| Series Type (Value 1) | (0054,1000) | acquisition_mode:2 -> STATIC <br/> acquisition_mode:3 -> DYNAMIC <br/> acquisition_mode:4 -> GATED <br/> acquisition_mode:5 -> FULL BODY |
+| Series Type (Value 2) | (0054,1000) | file_type:5 -> IMAGE <br/>    |
+| Series Type (example) | (0054,1000) | DYNAMIC\IMAGE                   |
+| Number of Slices      | (0054,0081) | z_dimension                     |
+| Corrected Image       | (0028,0051) | Values added when one or more of the following are not empty: <br/>normalization_applied -> NORM <br/>attenuation_applied -> ATTN <br/>scatter_correction -> SCAT <br/>decay_correction_applied -> DECY <br/>deadtime_correction_applied -> DTM |
+| Decay Correction      | (0054,1102) | decay_correction_applied:(not 0) -> START <br/>else NONE</br>See TODO below |
+| Collimator Type       | 0018,1181   | ""                              |
+
+TODO: Decay Correction can have values other than START. Determine proper mapping.
+
+### PET Isotope
+
+| Attribute Name                           | Tag         | Conversion   |
+|------------------------------------------|-------------|--------------|
+| Radiopharmaceutical Information Sequence | (0054,0016) |              |
+| >Radionuclide Code Sequence              | (0054,0300) |              |
+| >>Code Value                             | (0008,0100) | from isotope |
+| >>Coding Scheme Designator               | (0008,0102) |              |
+| >>Code Meaning                           | (0008,0104) |              |
+
+Map of isotope to Radionuclide Code Sequence.
+See https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CID_4020
+
+| isotope | Code Value | Coding Scheme | Code Meaning |
+|---------|------------|---------------|--------------|
+| F-18    | C-111A1    | SNM3          | ^18^Fluorine |
+
+TODO:
+1. We use the value from isotope here. There is also a header field for injected_compound. How should that be used?
+
+### PET Multi-Gated Acqusition
+ - None
+
+### NM/PET Patient Orientation
+
+| Attribute Name                            | Tag         | Conversion               |
+|-------------------------------------------|-------------|--------------------------|
+| Patient Orientation Code Sequence         | (0054,0410) |                          |
+| >Code Value                               | (0008,0100) | 102538003                |
+| >Coding Scheme Designator                 | (0008,0102) | SCT                      |
+| >Code Meaning                             | (0008,0104) | Recumbent                |
+| Patient Gantry Relationship Code Sequence | (0054,0410) |                          |
+| >Code Value                               | (0008,0100) | from subject_orientation |
+| >Coding Scheme Designator                 | (0008,0102) |                          |
+| >Code Meaning                             | (0008,0104) |                          |
+
+Map of subject_orientation to Patient Gantry Relationship Code Sequence.
+See https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CID_21
+
+| subject_orientation              | Code Value | Coding Scheme | Code Meaning |
+|----------------------------------|------------|---------------|--------------|
+| 0 - Unknown subject orientation  | No code    |
+| 1 - Feet first, prone            | 102541007  | SCT           | feet-first   |
+| 2 - Head first, prone            | 102540008  | SCT           | headfirst    |
+| 3 - Feet first, supine           | 102541007  | SCT           | feet-first   |
+| 4 - Head first, supine           | 102540008  | SCT           | headfirst    |
+| 5 - Feet first, right            | 102541007  | SCT           | feet-first   |
+| 6 - Head first, right            | 102540008  | SCT           | headfirst    |
+| 7 - Feet first, left             | 102541007  | SCT           | feet-first   |
+| 8 - Head first, left             | 102540008  | SCT           | headfirst    |
+
+
+### PET Image (Module)
 NB: The DICOM Standard repeats some elements in this module already defined in the Image Pixel Module. In these cases, we use the value "Image Pixel" in the Conversion column.
 
 | Attribute Name              | Tag         | Conversion                               |
@@ -234,8 +378,8 @@ NB: The DICOM Standard repeats some elements in this module already defined in t
 ### Acquisition Context
  - None
 
-### SOP Common
- - TODO
+TODO: Do we want to add the Siemens private data for PET? It is described in their Conformance Statement.
 
-### Common Instance Reference
- - TODO
+
+## NM Image
+ - Currently, no conversion software
