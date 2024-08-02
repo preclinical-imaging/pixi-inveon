@@ -181,8 +181,6 @@ class InveonImage:
                           "modality_configuration:2501": "Focus_120",
                           "modality_configuration:5000": "Inveon_Dedicated_PET",
                           "modality_configuration:5500": "Inveon_MM_PET",
-                          "modality_configuration:6000": "MR_PET_Head_Insert",
-                          "modality_configuration:8000": "Tuebingen_PET_MR",
 
                           "acquisition_mode:0": "Unknown acquisition mode",
                           "acquisition_mode:1": "Blank acquisition",
