@@ -35,7 +35,6 @@ def construct_overrides(my_parser:argparse.Namespace) -> {}:
     overrides["patient_id"]   = my_parser.patient_id
     overrides["patient_birthdate"] = my_parser.patient_birthdate
     overrides["patient_sex"] = my_parser.patient_sex
-    overrides["patient_sex"] = my_parser.patient_sex
 
     return overrides
 
