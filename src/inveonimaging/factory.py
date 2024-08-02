@@ -39,6 +39,9 @@ class Factory:
     def increment_series_number(self) -> None:
         self.series_number += 1
 
+    def reset_instance_number(self) -> None:
+        self.instance_number = 1
+
     def increment_instance_number(self) -> None:
         self.instance_number += 1
     def generate_study_instance_uid(self) -> None:
@@ -116,6 +119,7 @@ class Factory:
 
         self.create_output_folder(output_path, True)
         ct_common = self.create_ct_common_elements(inveon_image)
+        self.reset_instance_number()
 
         z_dimension = int(inveon_image.get_metadata_element("z_dimension"))
         total_frames = int(inveon_image.get_metadata_element("total_frames"))
@@ -131,6 +135,7 @@ class Factory:
 
         self.create_output_folder(output_path, True)
         pet_common = self.create_pet_common_elements(inveon_image)
+        self.reset_instance_number()
 
         z_dimension = int(inveon_image.get_metadata_element("z_dimension"))
         time_frames = int(inveon_image.get_metadata_element("time_frames"))
@@ -204,6 +209,7 @@ class Factory:
 
         # Study
         general_study = self.create_general_study_module(inveon_image)
+        # TODO Add Patient Study
         patient_study = None
         clinical_trial_study = None
 
@@ -277,6 +283,7 @@ class Factory:
         clinical_trial_subject = None
         # Study
         general_study = self.create_general_study_module(inveon_image)
+        # TODO Add Patient Study
         patient_study = None
         clinical_trial_study = None
         # Series
@@ -353,6 +360,7 @@ class Factory:
         clin_trial_subject = None
 
         general_study = self.create_general_study_module(inveon_image)
+        # TODO Add Patient Study
         patient_study = None
         clin_trial_study = None
 
@@ -425,6 +433,8 @@ class Factory:
 
         # Study
         general_study = self.create_general_study_module(inveon_image)
+
+        # TODO Add Patient Study
         patient_study = None
         clinical_trial_study = None
 
@@ -503,6 +513,7 @@ class Factory:
         clin_trial_subject = None
 
         general_study = self.create_general_study_module(inveon_image)
+        # TODO Add Patient Study
         patient_study = None
         clin_trial_study = None
 
@@ -530,7 +541,7 @@ class Factory:
         specimen = None
         enhanced_pet_image = self.create_enhanced_pet_image_module(inveon_image)
 
-        sop_common = self.create_sop_common_module(inveon_image, "1.2.840.10008.5.1.4.1.1.128.1")
+        sop_common = self.create_sop_common_module(inveon_image, "1.2.840.10008.5.1.4.1.1.130")
         common_instance_reference = None
         frame_extraction = None
 
@@ -573,6 +584,7 @@ class Factory:
         clin_trial_subject = None
 
         general_study = self.create_general_study_module(inveon_image)
+        # TODO Add Patient Study
         patient_study = None
         clin_trial_study = None
 
@@ -737,6 +749,7 @@ class Factory:
         patient_position = None
         operators_name             = inveon_image.get_metadata_element("operator")
 
+        # TODO Why do we discount PT data?
         if modality != "PT" and subject_orientation_mapped != None and subject_orientation_mapped != "":
             patient_position = subject_orientation_mapped
 
@@ -766,12 +779,27 @@ class Factory:
 
     def calculate_SeriesType(self, inveon_image: InveonImage) -> str:
         acquisition_mode = inveon_image.get_metadata_element("acquisition_mode")
+        file_type        = inveon_image.get_metadata_element("file_type")
+
+        value_1 = ""
         match acquisition_mode:
             case "3":
-                return "DYNAMIC\\IMAGE"
+                value_1 =  "DYNAMIC"
             case _:
                 raise Exception(
                     f"Do not have code to calculate SeriesType when acquisition_mode is {acquisition_mode}")
+
+        value_2 = ""
+        match file_type:
+            case "5":
+                value_2 = "IMAGE"
+            case _:
+                raise Exception(
+                    f"Do not have code to calculate SeriesType when file_type is {file_type}")
+
+
+        return f"{value_1}\\{value_2}"
+
 
     # TODO Review
     #  Need to distinguish between "START" and "ADMIN"
@@ -860,11 +888,18 @@ class Factory:
         patient_orientation.CodingSchemeDesignator = "SCT"
         patient_orientation.CodeMeaning            = "Recumbent"
 
-        # TODO Fix hard coded
         patient_gantry_relationship = Dataset()
-        patient_gantry_relationship.CodeValue              = "102541007"
-        patient_gantry_relationship.CodingSchemeDesignator = "SCT"
-        patient_gantry_relationship.CodeMeaning            = "feet-first"
+        subject_orientation = inveon_image.get_metadata_element("subject_orientation")
+        if (subject_orientation in ["1", "3", "5", "7"]):
+            patient_gantry_relationship.CodeValue = "102541007"
+            patient_gantry_relationship.CodingSchemeDesignator = "SCT"
+            patient_gantry_relationship.CodeMeaning = "feet-first"
+        elif (subject_orientation in ["2", "4", "6", "8"]):
+            patient_gantry_relationship.CodeValue = "102540008"
+            patient_gantry_relationship.CodingSchemeDesignator = "SCT"
+            patient_gantry_relationship.CodeMeaning = "headfirst"
+
+        # If neither of these, then leave as an empty sequence
 
         m = NMPETPatientOrientation(patient_orientation, patient_gantry_relationship)
 
@@ -893,26 +928,22 @@ class Factory:
             "modality_configuration_mapped")
         version = "header " + inveon_image.get_metadata_element(
             "version") + "\\" + "reconstruction " + inveon_image.get_metadata_element("recon_version")
+        # TODO Fix hard coded Serial Number
         device_serial_number = "2024.01.01"
 
         m = EnhancedGeneralEquipmentModule(manufacturer, mfr_model_name, device_serial_number, version)
         return m
 
     def create_general_acquisition_module(self, inveon_image: InveonImage) -> GeneralAcquisitionModule:
-        #        manufacturer = inveon_image.get_metadata_element("manufacturer")
 
-        m = GeneralAcquisitionModule()
+        acquisition_date = inveon_image.get_metadata_element("scan_time_date")
+        acquisition_time = inveon_image.get_metadata_element("scan_time_time")
+
+        m = GeneralAcquisitionModule(acquisition_date=acquisition_date, acquisition_time=acquisition_time)
         return m
 
     def create_general_image_module(self, inveon_image: InveonImage) -> GeneralImageModule:
         image_comments = inveon_image.get_metadata_element("ImageComments")
-        modality_mapped = inveon_image.get_metadata_element("modality_mapped")
-
-#        instance_number = 99
-#        instance_number_map = {"CT": "101", "PET": "102", "SPECT": "103"}
-#
-#        if (modality_mapped in instance_number_map):
-#            instance_number = instance_number_map[modality_mapped]
 
         instance_number = self.get_instance_number()
         self.increment_instance_number()
@@ -966,13 +997,6 @@ class Factory:
         pixel_representation = 1
 
         pixel_data = None
-#        if (include_pixels):
-#            fh = inveon_image.get_pixel_fh();
-#            if (include_all_pixels):
-#                pixel_data = bytes(fh.read())
-#                inveon_image.close_pixel_file();
-#            else:
-#                pixel_data = bytes(fh.read(int(rows) * int(columns) * 2))
 
         if (include_pixels):
             pixel_data = self.read_normalize_pixel_data(inveon_image, include_all_pixels, time_index)
@@ -1026,35 +1050,36 @@ class Factory:
         scale_factor               = float(inveon_image.get_frame_metadata_element(time_index, "scale_factor"))
         calibration_factor         = float(inveon_image.get_metadata_element("calibration_factor"))
         isotope_branching_fraction = float(inveon_image.get_metadata_element("isotope_branching_fraction"))
-        minimum                    = float(inveon_image.get_frame_metadata_element(time_index, "minimum"))
-        maximum                    = float(inveon_image.get_frame_metadata_element(time_index, "maximum"))
+        #minimum                    = float(inveon_image.get_frame_metadata_element(time_index, "minimum"))
+        #maximum                    = float(inveon_image.get_frame_metadata_element(time_index, "maximum"))
 
         #scale = scale_factor*calibration_factor/isotope_branching_fraction
 
         #max_scaled_value = (maximum - minimum) * scale
-        scale = 32766. / (maximum - minimum)
-                #* (32766. / maximum - minimum);
-#        print(f"Time index {time_index} Scale Factor {scale_factor} Calibration Factor {calibration_factor} Isotope Branching Function {isotope_branching_fraction} Scale {scale}")
+
 
         float_pixels = numpy.fromfile(inveon_image.get_pixel_fh(), numpy.float32, rows*columns, "", 0)
 
         min_float = numpy.min(float_pixels)
         max_float = numpy.max(float_pixels)
+        scale = 32767. / (max_float - min_float)
         print(f"{time_index} {self.instance_number-1} {min_float} {max_float}")
-        print(f"MIN_FLOAT {min_float}")
+        print(f"MIN_FLOAT {min_float} Scale {scale}")
         shifted_pixels = float_pixels - min_float
         scaled_pixels  = shifted_pixels * scale
         s16_pixels     = numpy.array(scaled_pixels, numpy.int16)
 
         min_scaled = numpy.min(scaled_pixels)
         max_scaled = numpy.max(scaled_pixels)
-        z = (maximum-minimum)*scale
+        z = (max_float-min_float)*scale
         min_int = numpy.min(s16_pixels)
         max_int = numpy.max(s16_pixels)
         print(f"{time_index} SCALAR {scale}")
         print(f"{time_index} MIN_SCALED {min_scaled}")
         print(f"{time_index} MAX_SCALED {max_scaled:09.3f} Z {z}")
-        print(f"Minimum {minimum} Maximum {maximum} {min_int} {max_int}")
+        slope = 37000 / scale
+        print(f"Minimum {min_float} Maximum {max_float}  Min int {min_int} Max int {max_int} slope {slope}")
+        print("")
 
         return s16_pixels.tobytes()
 
@@ -1322,7 +1347,5 @@ class Factory:
         return m
 
     def create_sop_common_module(self, inveon_image: InveonImage, sop_class_uid: str) -> SOPCommonModule:
-        #        manufacturer = inveon_image.get_metadata_element("manufacturer")
-
         m = SOPCommonModule(sop_class_uid, generate_uid())
         return m
