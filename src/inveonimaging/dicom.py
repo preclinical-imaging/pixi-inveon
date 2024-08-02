@@ -195,9 +195,36 @@ class EnhancedGeneralEquipmentModule:
 
 class GeneralAcquisitionModule:
     def __init__(
-        self):
+        self,
+            acquisition_uid       = None,
+            acquisition_number    = None,
+            acquisition_date      = None,
+            acquisition_time      = None,
+            acquisition_datetime  = None,
+            acquisition_duration  = None,
+            images_in_acquisition = None,
+            irradiation_event_uid = None
+    ):
 
         self.ds = Dataset()
+
+        if (acquisition_uid is not None):
+            self.ds.AcquisitionUID = acquisition_uid
+        if (acquisition_number is not None):
+            self.ds.AcquisitionNumber = acquisition_number
+        if (acquisition_date is not None):
+            self.ds.AcquisitionDate = acquisition_date
+        if (acquisition_time is not None):
+            self.ds.AcquisitionTime = acquisition_time
+        if (acquisition_datetime is not None):
+            self.ds.AcquisitionDateTime = acquisition_datetime
+        if (acquisition_duration is not None):
+            self.ds.AcquisitionDuration = acquisition_duration
+        if (images_in_acquisition is not None):
+            self.ds.ImagesInAcquisition = images_in_acquisition
+        if (irradiation_event_uid is not None):
+            self.ds.IrradiationEventUID = irradiation_event_uid
+
     def get_dataset(self):
         return self.ds
 
