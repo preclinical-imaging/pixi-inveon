@@ -1050,8 +1050,13 @@ class Factory:
         scale_factor               = float(inveon_image.get_frame_metadata_element(time_index, "scale_factor"))
         calibration_factor         = float(inveon_image.get_metadata_element("calibration_factor"))
         isotope_branching_fraction = float(inveon_image.get_metadata_element("isotope_branching_fraction"))
-        #minimum                    = float(inveon_image.get_frame_metadata_element(time_index, "minimum"))
-        #maximum                    = float(inveon_image.get_frame_metadata_element(time_index, "maximum"))
+        minimum_in_frame           = float(inveon_image.get_frame_metadata_element(time_index, "minimum"))
+        maximum_in_frame           = float(inveon_image.get_frame_metadata_element(time_index, "maximum"))
+
+        max_scaled = maximum_in_frame * calibration_factor * scale_factor / isotope_branching_fraction * 37
+        rescale_slope = max_scaled / 32767
+
+        pixel_scale = calibration_factor * scale_factor / isotope_branching_fraction * 37 * (32767 / max_scaled)
 
         #scale = scale_factor*calibration_factor/isotope_branching_fraction
 
@@ -1062,23 +1067,23 @@ class Factory:
 
         min_float = numpy.min(float_pixels)
         max_float = numpy.max(float_pixels)
-        scale = 32767. / (max_float - min_float)
-        print(f"{time_index} {self.instance_number-1} {min_float} {max_float}")
-        print(f"MIN_FLOAT {min_float} Scale {scale}")
-        shifted_pixels = float_pixels - min_float
-        scaled_pixels  = shifted_pixels * scale
+
+#        scale = 32767. / (max_float - min_float)
+#        print(f"{time_index} {self.instance_number-1} {min_float} {max_float}")
+#        print(f"MIN_FLOAT {min_float} Scale {scale}")
+#        shifted_pixels = float_pixels - min_float
+        scaled_pixels  = float_pixels * pixel_scale
         s16_pixels     = numpy.array(scaled_pixels, numpy.int16)
 
-        min_scaled = numpy.min(scaled_pixels)
-        max_scaled = numpy.max(scaled_pixels)
-        z = (max_float-min_float)*scale
+#        min_scaled = numpy.min(scaled_pixels)
+#        max_scaled = numpy.max(scaled_pixels)
+#        z = (max_float-min_float)*scale
         min_int = numpy.min(s16_pixels)
         max_int = numpy.max(s16_pixels)
-        print(f"{time_index} SCALAR {scale}")
-        print(f"{time_index} MIN_SCALED {min_scaled}")
-        print(f"{time_index} MAX_SCALED {max_scaled:09.3f} Z {z}")
-        slope = 37000 / scale
-        print(f"Minimum {min_float} Maximum {max_float}  Min int {min_int} Max int {max_int} slope {slope}")
+        print(f"{time_index} SCALAR {pixel_scale}")
+        print(f"{time_index} MIN_SCALED {min_int}")
+        print(f"{time_index} MAX_SCALED {max_int}")
+        print(f"Minimum {min_float} Maximum {max_float}  Min int {min_int} Max int {max_int} slope {rescale_slope}")
         print("")
 
         return s16_pixels.tobytes()
@@ -1264,14 +1269,16 @@ class Factory:
         return m
 
     # index: Frame index from 0 to a small number
-    def create_pet_image_module(self, inveon_image: InveonImage, time_index=0, frame_index=0) -> EnhancedCTImageModule:
+    def create_pet_image_module(self, inveon_image: InveonImage, time_index=0, frame_index=0) -> PETImageModule:
 
         # TODO fix these, all
         image_type = "ORIGINAL\\PRIMARY"
-        rescale_intercept = "0"
-        rescale_slope = "1.217"
+
+
 
         # These are OK
+        rescale_slope         = self.calculate_RescaleSlope_for_PET(inveon_image, time_index)
+        rescale_intercept     = "0"
         frame_reference_time  = self.calculate_FrameReferenceTime(inveon_image, time_index)
         image_index           = self.calculate_ImageIndex(inveon_image, time_index, frame_index)
         acquisition_date      = inveon_image.get_metadata_element("scan_time_date")
@@ -1292,10 +1299,22 @@ class Factory:
         )
         return m
 
-    def calculate_FrameReferenceTime(self, inveon_image: InveonImage, index: int) -> str:
-        frame_start = float(inveon_image.get_frame_metadata_element(index, "frame_start"))
-        frame_duration = float(inveon_image.get_frame_metadata_element(index, "frame_duration"))
+    def calculate_FrameReferenceTime(self, inveon_image: InveonImage, time_index: int) -> str:
+        frame_start = float(inveon_image.get_frame_metadata_element(time_index, "frame_start"))
+        frame_duration = float(inveon_image.get_frame_metadata_element(time_index, "frame_duration"))
         return str(1000 * (frame_start + frame_duration / 2))
+
+    def calculate_RescaleSlope_for_PET(self, inveon_image: InveonImage, time_index: int) -> str:
+        scale_factor               = float(inveon_image.get_frame_metadata_element(time_index, "scale_factor"))
+        calibration_factor         = float(inveon_image.get_metadata_element("calibration_factor"))
+        isotope_branching_fraction = float(inveon_image.get_metadata_element("isotope_branching_fraction"))
+        maximum_in_frame           = float(inveon_image.get_frame_metadata_element(time_index, "maximum"))
+
+        max_scaled = maximum_in_frame * calibration_factor * scale_factor / isotope_branching_fraction * 37
+        rescale_slope = max_scaled / 32767
+
+        slope_string = f"{rescale_slope:0.3f}"
+        return slope_string
 
     def calculate_ImageIndex(self, inveon_image: InveonImage, time_index: int, frame_index: int) -> int:
         z_dimension = int(inveon_image.get_metadata_element("z_dimension"))

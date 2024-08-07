@@ -4,43 +4,44 @@
 ### Larger Issues
 1. We have software to create PET and CT images. Siemens documentation indicates they produce NM images, but we do not know how to identify/distinguish NM from PET data.
 
-1. Need to translate float pixel values for PET images to 16 bit integers for DICOM. At the same time, need to populate Rescale Intercept, Rescale Slope, and Units in a coherent fashion. Units for PET image pixels are defined here: https://dicom.nema.org/medical/dicom/current/output/html/part03.html#sect_C.8.9.1.1.3. The example I am working with uses units of BQML Becquerels/milliliter (Bq/ml, UCUM, "Becquerels/milliliter"). We also note from the sample I have that the Siemens software produces different slope values for images in the same series. I infer from this that their normalization is on a per slice basis or possibly on a few slices that are in the same position but offset by time. Could also be in the same time frame but offset by position.
+1. PET: Need to translate float pixel values to 16 bit integers for DICOM.
+   - Method is under review by Richard Laforest
 
-1. Image Orientation (Patient) (0020,0037) is defined as: *The direction cosines of the first row and the first column with respect to the patient. *. This should be mapped from subject_orientation. I do not know the mapping.
+1. CT, PET: Image Orientation (Patient) (0020,0037) is defined as: *The direction cosines of the first row and the first column with respect to the patient. *. This should be mapped from subject_orientation. I do not know the mapping.
 
-1. Image Position (Patient) (0020,0032) is the X,Y,Z position of a plane. This should be synchronized across the CT and PET images and values should follow Siemens convention if possible. What I am doing now is not synchronized across the different scans and is not what Siemens is doing.
+1. CT, PET: Image Position (Patient) (0020,0032) is the X,Y,Z position of a plane. This should be synchronized across the CT and PET images and values should follow Siemens convention if possible. What I am doing now is not synchronized across the different scans and is not what Siemens is doing.
 
-1. Do we need to support Multi-Energy CT?
+1. CT: Do we need to support Multi-Energy CT?
 
-1. No work has been done on gated studies. Do we need to support those?
+1. PET: No work has been done on gated studies. Do we need to support those?
 
-1. Inveon header has values for isotope and injected_compound. We are using isotope to create a coded entry in the Radionuclide Code Sequence. How should we use injected_compound?
+1. PET: Inveon header has values for isotope and injected_compound. We are using isotope to create a coded entry in the Radionuclide Code Sequence. How should we use injected_compound?
 
-1. Do we want to add the Siemens private data for CT? It is described in their Conformance Statement.
+1. CT: Do we want to add the Siemens private data for CT? It is described in their Conformance Statement.
 
-1. Do we want to add the Siemens private data for PET? It is described in their Conformance Statement.
+1. CT: Do we want to add the Siemens private data for PET? It is described in their Conformance Statement.
 
 ### Smaller Issues
-1. Decay Correction (0054,1102) can take on the values NONE, START, ADMIN. What is in the Inveon header that map to the correct values?
+1. PET: Decay Correction (0054,1102) can take on the values NONE, START, ADMIN. What is in the Inveon header that map to the correct values?
 
-1. Is decay_correction the right value to use for DICOM Decay Factor (0054,1321)?
+1. PET: Is decay_correction the right value to use for DICOM Decay Factor (0054,1321)?
 
-1. The mapping table from isotope to the code value in Radionuclide Code Sequence needs to be completed.
+1. PET: The mapping table from isotope to the code value in Radionuclide Code Sequence needs to be completed.
 
-1. Some code exists for Enhanced CT and Enhanced PET. That should be removed, and we should focus on traditional CT and PET images.
+1. CT, PET: Some code exists for Enhanced CT and Enhanced PET. That should be removed, and we should focus on traditional CT and PET images.
 
-1. Review the computed value for Image Index (0054,1330)
+1. PET Review the computed value for Image Index (0054,1330)
 
-1. Review how the values for Image Type (0008,0008) are determined.
+1. CT, PET: Review how the values for Image Type (0008,0008) are determined.
 
-1. Current software accepts Patient/Subject Name, ID, DOB, Sex from command line. These values are available in the header, but is there a standard format so we can populate the DICOM header properly
+1. CT, PET: Current software accepts Patient/Subject Name, ID, DOB, Sex from command line. These values are available in the header, but is there a standard format so we can populate the DICOM header properly
    - subject_date_of_birth
    - subject_sex
    - subject_identifier
    - subject_genus
    - subject_phenotype
 
-1. Patient Study Module. Nothing is included today.
+1. CT, PET: Patient Study Module. Nothing is included today.
   - What is the format of subject_age so we can place this in the DICOM metadata?
   - Do we want to map subject_length into the DICOM metadata (Patient's Size 0010,1020)
   - Do we want to map subject_weight into the DICOM metadata (Patient's Weight 0010,1030)
