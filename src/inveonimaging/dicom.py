@@ -248,7 +248,8 @@ class ImagePlaneModule:
         pixel_spacing_col:str,
         image_orientation_patient:str,
         image_position_patient:str,
-        slice_thickness:str
+        slice_thickness:str,
+        slice_location:str
     ):
 
         self.ds = Dataset()
@@ -256,6 +257,7 @@ class ImagePlaneModule:
         self.ds.ImageOrientationPatient = image_orientation_patient
         self.ds.ImagePositionPatient    = image_position_patient
         self.ds.SliceThickness          = slice_thickness
+        self.ds.SliceLocation           = slice_location
 
     def get_dataset(self):
         return self.ds

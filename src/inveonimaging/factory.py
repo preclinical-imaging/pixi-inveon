@@ -957,13 +957,15 @@ class Factory:
         image_orientation_patient = self.calculate_ImageOrientationPatient(inveon_image)
         image_position_patient = self.calculate_ImagePositionPatient(inveon_image, index)
         slice_thickness = inveon_image.get_metadata_element("pixel_size_z")
+        slice_location = self.calculate_SliceLocation(inveon_image, index)
 
         m = ImagePlaneModule(
             pixel_spacing_row,
             pixel_spacing_col,
             image_orientation_patient,
             image_position_patient,
-            slice_thickness
+            slice_thickness,
+            slice_location
         )
         return m
 
@@ -979,9 +981,31 @@ class Factory:
                 raise Exception(
                     f"Do not have code to calculate ImageOrientationPatient when subject_orientation is {subject_orientation}")
 
+    # index numbers from 0
     def calculate_ImagePositionPatient(self, inveon_image: InveonImage, index: int) -> str:
-        z_position = float(inveon_image.get_metadata_element("pixel_size_z")) * index
-        return f"0\\0\\{z_position:.6f}"
+
+        pixel_size_x = float(inveon_image.get_metadata_element("pixel_size_x"))
+        pixel_size_y = float(inveon_image.get_metadata_element("pixel_size_y"))
+
+        x_dimension = inveon_image.get_metadata_element("x_dimension")
+        y_dimension = inveon_image.get_metadata_element("y_dimension")
+
+        x_position =   (float(x_dimension)-1)/2.0 * pixel_size_x
+        y_position = -((float(y_dimension)-1)/2.0 * pixel_size_y)
+
+        # Because we already do this calculation, reuse the code
+        z_position = self.calculate_SliceLocation(inveon_image, index)
+
+        return f"{x_position:.6f}\\{y_position:.6f}\\{z_position}"
+
+
+    # index numbers from 0
+    def calculate_SliceLocation(self, inveon_image: InveonImage, index: int) -> str:
+        pixel_size_z = float(inveon_image.get_metadata_element("pixel_size_z"))
+        z_dimension = inveon_image.get_metadata_element("z_dimension")
+        z_position = (float(index) + .5 - float(z_dimension)/2) * pixel_size_z
+
+        return f"{z_position:.6f}"
 
     def create_image_pixel_module(self, inveon_image: InveonImage, include_pixels=True,
                                   include_all_pixels=True, time_index=0) -> ImagePixelModule:
