@@ -1,19 +1,23 @@
 # Specifications for Inveon to DICOM Conversion
 
+## Items Not Addressed.
+1. Siemens documentation indicates they produce NM images, but we do not know how to identify/distinguish NM from PET data.
+
+1. CT: Will not support Multi-Energy CT.
+
+1. PET: Will not support gated studies.
+
+1. PET and CT: Will not syncrhonize the x,y,z positions and use a common Frame of Reference between the series.
+
 ## Open Issues (Priority Order)
 ### Larger Issues
-1. We have software to create PET and CT images. Siemens documentation indicates they produce NM images, but we do not know how to identify/distinguish NM from PET data.
 
 1. PET: Need to translate float pixel values to 16 bit integers for DICOM.
    - Method is under review by Richard Laforest
 
 1. CT, PET: Image Orientation (Patient) (0020,0037) is defined as: *The direction cosines of the first row and the first column with respect to the patient. *. This should be mapped from subject_orientation. I do not know the mapping.
 
-1. CT, PET: Image Position (Patient) (0020,0032) is the X,Y,Z position of a plane. This should be synchronized across the CT and PET images and values should follow Siemens convention if possible. What I am doing now is not synchronized across the different scans and is not what Siemens is doing.
-
-1. CT: Do we need to support Multi-Energy CT?
-
-1. PET: No work has been done on gated studies. Do we need to support those?
+1. CT, PET: Image Position (Patient) (0020,0032) contains the X,Y,Z position of a plane. With help from Richard Laforest, we empirically derived the equations for these three values. This is described below. This could use review, especially in the context of different orientations of the mouse subjects. We especially need to review why we had to reverse the sign on the x and y position calculations.
 
 1. PET: Inveon header has values for isotope and injected_compound. We are using isotope to create a coded entry in the Radionuclide Code Sequence. How should we use injected_compound?
 
@@ -26,7 +30,9 @@
 
 1. PET: Is decay_correction the right value to use for DICOM Decay Factor (0054,1321)?
 
-1. PET: The mapping table from isotope to the code value in Radionuclide Code Sequence needs to be completed.
+1. PET: The mapping table from isotope to the code value in Radionuclide Code Sequence needs to be completed. This one mapping exists:
+   - F-18 --> (C-111A1, SNM3, ^18^Fluorine)
+   - See [CID 4020 PET Radionuclide](https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CID_4020) for the list of coded values. We do not know the values that can be entered in the scanner for isotope.
 
 1. CT, PET: Some code exists for Enhanced CT and Enhanced PET. That should be removed, and we should focus on traditional CT and PET images.
 
@@ -143,7 +149,6 @@ Mapping table from Inveon values to DICOM values
 
 
 
-
 ### Clinical Trial Series
  - None
 
@@ -151,10 +156,10 @@ Mapping table from Inveon values to DICOM values
 
 | Attribute Name               | Tag         | Conversion                      |
 |------------------------------|-------------|---------------------------------|
-| Frame of Reference UID       | (0020,0052) | generated (see TODO below)      |
+| Frame of Reference UID       | (0020,0052) | generated (see Note below)      |
 | Position Reference Indicator | (0020,1040) | ""                              |
 
-TODO: Need to harmonize generated UID across the PET and CT scans and make sure the same Frame of Reference is used. Today, these are separate, so no automatic registration is possible.
+Note: We generate seprate Frame of Reference UIDs for CT and PET series. There is no attempt to harmonize the Frames of Reference.
 
 ### Synchronization
  - None
@@ -231,12 +236,13 @@ The Image Comments element is created by combining values for x_filter, y_filter
  - None
 
  ### Image Plane
-| Attribute Name              | Tag         | Conversion                           |
-|-----------------------------|-------------|--------------------------------------|
-| Pixel Spacing               | (0028,0030) | from pixel_size_x and pixel_size_y   |
-| Image Orientation (Patient) | (0020,0037) | from subject_orientation. See below. |
-| Image Position (Patient)    | (0020,0032) | from pixel_size_z                    |
-| Slice Thickness             | (0018,0050) | pixel_size_z                         |
+| Attribute Name              | Tag         | Conversion                              |
+|-----------------------------|-------------|-----------------------------------------|
+| Pixel Spacing               | (0028,0030) | from pixel_size_x and pixel_size_y      |
+| Image Orientation (Patient) | (0020,0037) | from subject_orientation. See below.    |
+| Image Position (Patient)    | (0020,0032) | see below                               |
+| Slice Thickness             | (0018,0050) | pixel_size_z                            |
+| Slice Location              | (0020,1041) | Z component of Image Position (Patient) |
 
 Mapping Inveon subject_orientation to DICOM Image Orientation Patient
 | subject_orientation              | DICOM Image Orientation Patient |
@@ -253,23 +259,87 @@ Mapping Inveon subject_orientation to DICOM Image Orientation Patient
 
 TODO: Review the values for DICOM Subject Orientation and how they relate to Inveon subject_orientation.
 
+####  Calculating X, Y, Z positions of the image plane
+   - Variables below
+      - $var refers to a local variable
+      - {variable} refer to named variables of the same name in the Inveon header file. We take one liberty (next item)
+   - The value image_ref_shift is defined as "Image reference shift (X, Y, Z), in mm, applied to data set (float float float)". In the notation below, we will use image_ref_shift(x) to indicate the shift in the x position with similar notation for y and z.
+   - All calculations are in mm
+   - These are the names of the variables we use from the Inveon header
+      - image_ref_shift
+      - pixel_size_x, pixel_size_y, pixel_size_z
+      - x_dimension, y_dimension, z_dimension
+   - See note after the equations about open issues
+
+    $x_delta = {image_shift_ref(x)}
+    $y_delta = {image_shift_ref(y)}
+    $y_delta = {image_shift_ref(y)}
+    
+    $x_position =    (({x_dimension}/2-1) / 2 * {pixel_size_x}) - x_delta
+    $y_position =  -((({y_dimension}/2-1) / 2 * {pixel_size_y}) - y_delta)
+
+    $index: Ranges from 0 to number of slices - 1
+    $z_position = (($index + .5 - z_dimension/2) * pixel_size_z) + z_delta
+
+Notes on x, y, z positions
+1. Equations for determining x, y, z positions were developed empirically and then compared to output produced by the Inveon workstation.
+2. Equations do not take into consider any orientation information (HFS, FFS, etc.) that is found in the header information.
+3. We especially need to review why we had to reverse the sign on the x and y position calculations.
+
+
 ### Image Pixel
 
-| Attribute Name              | Tag         | Conversion     |
-|-----------------------------|-------------|----------------|
-| Samples per Pixel           | (0028,0002) |      1         |
-| Photometric Interpretation  | (0028,0004) | MONOCHROME2    |
-| Rows                        | (0028,0010) | y_dimension    |
-| Columns                     | (0028,0011) | x_dimension    |
-| Bits Allocated              | (0028,0100) |     16  (1)    |
-| Bits Stored                 | (0028,0101) |     16         |
-| High Bit                    | (0028,0102) |     15         |
-| Pixel Representation        | (0028,0103) |      1  (2)    |
-| Pixel Data                  | (7FE0,0010) | from .img file |
+| Attribute Name              | Tag         | Conversion         |
+|-----------------------------|-------------|--------------------|
+| Samples per Pixel           | (0028,0002) |      1             |
+| Photometric Interpretation  | (0028,0004) | MONOCHROME2        |
+| Rows                        | (0028,0010) | y_dimension        |
+| Columns                     | (0028,0011) | x_dimension        |
+| Bits Allocated              | (0028,0100) |     16  (1)        |
+| Bits Stored                 | (0028,0101) |     16             |
+| High Bit                    | (0028,0102) |     15             |
+| Pixel Representation        | (0028,0103) |      1  (2)        |
+| Pixel Data                  | (7FE0,0010) | from .img file (3) |
 
 Notes:
 1. All pixels converted to 16 bit integers if not already in that format. For example, floating point values are converted.
 2. Pixel Representation is 2's complement
+3. See calculations below
+
+#### Image Pixel Calculations
+The header variable data_type defines the format of the pixel data in the .img file. The software derives the pixel data as follows:
+
+    switch data_type:
+      case 2:     // 2-byte integer - Intel style
+        read/return 2 byte integers as they exist in the file
+
+      case 4:    // 4-byte float - Intel style
+        convert float to integer; see below
+
+      all others: (0, 1 3, 5, 6 7)
+        raise exception
+
+This describes the conversion of floating point data to 2-byte integers. We assume that we only get 4-byte float inputs for PET data. That assumption needs to be reviews.
+
+Variables below
+   - $var refers to a local variable
+   - {variable} refer to named variables of the same name in the Inveon header file.
+   - These are the names of the variables we use from the Inveon header
+      - x_dimension, y_dimension
+      - scale_factor
+      - calibraton_factor
+      - isotope_branching_fraction
+      - maximum (conditioned on the time frame you are in)
+
+    $max_scaled = {maximum} * {calibration_factor} * {scale_factor} / {isotope_branching_fraction} * 37
+    $pixel_scale = {calibration_factor} * {scale_factor} / {isotope_branching_fraction} * 37 * (32767 / {max_scaled})
+    $float_pixels = array of floating point pixel values
+
+    for $i = 0 to float_pixels.lengh - 1:
+      $int_pixel[$i] = $float_pixel[$i] * $pixel_scale
+    done
+    return $int_pixel (array of integer pixels)
+
 
 ### Device
  - None
@@ -432,7 +502,7 @@ TODO: Decay Correction can have values other than START. Determine proper mappin
 | >>Code Meaning                           | (0008,0104) |              |
 
 Map of isotope to Radionuclide Code Sequence.
-See https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CID_4020
+See https://dicom.nema.org/medical/dicom/current/output/html/part16.html#sect_CID_4020 for the list of coded values. The table in the DICOM Standard does not define the mapping from the Inveon header (isotope) to the value in the table for CID 4020.
 
 | isotope | Code Value | Coding Scheme | Code Meaning |
 |---------|------------|---------------|--------------|
