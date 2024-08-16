@@ -959,6 +959,8 @@ class Factory:
         slice_thickness = inveon_image.get_metadata_element("pixel_size_z")
         slice_location = self.calculate_SliceLocation(inveon_image, index)
 
+        print(f"Create Image Plane index {index} Slice location {slice_location}")
+
         m = ImagePlaneModule(
             pixel_spacing_row,
             pixel_spacing_col,
@@ -983,6 +985,14 @@ class Factory:
 
     # index numbers from 0
     def calculate_ImagePositionPatient(self, inveon_image: InveonImage, index: int) -> str:
+        x_delta = 0
+        y_delta = 0
+        image_shift_ref = inveon_image.get_metadata_element("image_ref_shift")
+        if (image_shift_ref is not None):
+            tokens = image_shift_ref.split(" ")
+            x_delta = float(tokens[1])
+            y_delta = float(tokens[2])
+
 
         pixel_size_x = float(inveon_image.get_metadata_element("pixel_size_x"))
         pixel_size_y = float(inveon_image.get_metadata_element("pixel_size_y"))
@@ -990,8 +1000,8 @@ class Factory:
         x_dimension = inveon_image.get_metadata_element("x_dimension")
         y_dimension = inveon_image.get_metadata_element("y_dimension")
 
-        x_position =   (float(x_dimension)-1)/2.0 * pixel_size_x
-        y_position = -((float(y_dimension)-1)/2.0 * pixel_size_y)
+        x_position =   ((float(x_dimension)-1)/2.0 * pixel_size_x) - x_delta
+        y_position = -(((float(y_dimension)-1)/2.0 * pixel_size_y) - y_delta)
 
         # Because we already do this calculation, reuse the code
         z_position = self.calculate_SliceLocation(inveon_image, index)
@@ -1004,6 +1014,12 @@ class Factory:
         pixel_size_z = float(inveon_image.get_metadata_element("pixel_size_z"))
         z_dimension = inveon_image.get_metadata_element("z_dimension")
         z_position = (float(index) + .5 - float(z_dimension)/2) * pixel_size_z
+
+        image_shift_ref = inveon_image.get_metadata_element("image_ref_shift")
+        if (image_shift_ref is not None):
+            tokens = image_shift_ref.split(" ")
+            z_delta = float(tokens[3])
+            z_position = z_position + z_delta
 
         return f"{z_position:.6f}"
 
@@ -1078,37 +1094,25 @@ class Factory:
         maximum_in_frame           = float(inveon_image.get_frame_metadata_element(time_index, "maximum"))
 
         max_scaled = maximum_in_frame * calibration_factor * scale_factor / isotope_branching_fraction * 37
-        rescale_slope = max_scaled / 32767
+        #rescale_slope = max_scaled / 32767
 
         pixel_scale = calibration_factor * scale_factor / isotope_branching_fraction * 37 * (32767 / max_scaled)
 
-        #scale = scale_factor*calibration_factor/isotope_branching_fraction
-
-        #max_scaled_value = (maximum - minimum) * scale
-
-
         float_pixels = numpy.fromfile(inveon_image.get_pixel_fh(), numpy.float32, rows*columns, "", 0)
 
-        min_float = numpy.min(float_pixels)
-        max_float = numpy.max(float_pixels)
+#        min_float = numpy.min(float_pixels)
+#        max_float = numpy.max(float_pixels)
 
-#        scale = 32767. / (max_float - min_float)
-#        print(f"{time_index} {self.instance_number-1} {min_float} {max_float}")
-#        print(f"MIN_FLOAT {min_float} Scale {scale}")
-#        shifted_pixels = float_pixels - min_float
         scaled_pixels  = float_pixels * pixel_scale
         s16_pixels     = numpy.array(scaled_pixels, numpy.int16)
 
-#        min_scaled = numpy.min(scaled_pixels)
-#        max_scaled = numpy.max(scaled_pixels)
-#        z = (max_float-min_float)*scale
-        min_int = numpy.min(s16_pixels)
-        max_int = numpy.max(s16_pixels)
-        print(f"{time_index} SCALAR {pixel_scale}")
-        print(f"{time_index} MIN_SCALED {min_int}")
-        print(f"{time_index} MAX_SCALED {max_int}")
-        print(f"Minimum {min_float} Maximum {max_float}  Min int {min_int} Max int {max_int} slope {rescale_slope}")
-        print("")
+#        min_int = numpy.min(s16_pixels)
+#        max_int = numpy.max(s16_pixels)
+#        print(f"{time_index} SCALAR {pixel_scale}")
+#        print(f"{time_index} MIN_SCALED {min_int}")
+#        print(f"{time_index} MAX_SCALED {max_int}")
+#        print(f"Minimum {min_float} Maximum {max_float}  Min int {min_int} Max int {max_int} slope {rescale_slope}")
+#        print("")
 
         return s16_pixels.tobytes()
 
