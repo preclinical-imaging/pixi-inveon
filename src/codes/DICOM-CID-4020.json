@@ -1,0 +1,6 @@
+[
+  {"key": "Cu-64", "code": "C-127A2", "meaning": "^64^Copper",   "system": "SNM3"},
+  {"key": "F-18",  "code": "C-111A1", "meaning": "^18^Fluorine", "system": "SNM3"},
+  {"key": "Ga-68", "code": "C-131A3", "meaning": "^68^Gallium",  "system": "SNM3"},
+  {"key": "O-15",  "code": "C-B1038", "meaning": "^15^Oxygen",   "system": "SNM3"}
+]

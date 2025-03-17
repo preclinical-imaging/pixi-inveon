@@ -47,6 +47,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Inveon native .img/.hdr file to DICOM original")
     parser.add_argument("InveonFolder",                                      help="Path to Inveon .hdr/.img file(s)")
     parser.add_argument("OutputFolder",                                      help="Path to output folder for DICOM files")
+    parser.add_argument('-C', '--codetable',        dest='code_table',       help="JSON file with code table")
     parser.add_argument('-c', '--ct',               dest='ct_prefix',        help="Prefix for a CT file")
     parser.add_argument('-p', '--pet',              dest='pet_prefix',       help="Prefix for a PET file")
     parser.add_argument('-f', '--file',                                      help="Name of output file for multiframe output")
@@ -61,9 +62,13 @@ if __name__ == '__main__':
     overrides = construct_overrides(args)
 
     factory = Factory()
+    if (args.code_table is not None):
+        factory.import_code_table_file(args.code_table)
+
     factory.generate_study_instance_uid()
     factory.add_file_prefix("CT",  args.ct_prefix)
     factory.add_file_prefix("PT",  args.pet_prefix)
+
 
     study_description = None
     if (args.study_description is not None):
@@ -74,7 +79,7 @@ if __name__ == '__main__':
         series_number = factory.get_series_number()
 
         inveon_image: InveonImage = InveonImage(study_description, f).parse_header()
-        output_folder: str = os.path.join(args.OutputFolder, str(series_number))
+        output_folder: str = os.path.join(args.OutputFolder, str(series_number), "DICOM")
         if (args.multiframe) :
             print(f"Multiframe {f} {output_folder}")
             factory.convert_to_multiframe(inveon_image, output_folder, args.file)

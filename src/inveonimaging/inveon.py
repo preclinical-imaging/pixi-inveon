@@ -58,7 +58,8 @@ class InveonImage:
     def get_metadata_element(self, element_name) -> str:
         rtn = ""
 
-        if (self.metadata[element_name] != None):
+#        if (self.metadata[element_name] != None):
+        if (element_name in self.metadata and self.metadata[element_name] != None):
             rtn = self.metadata[element_name]
 
         return rtn
@@ -236,12 +237,43 @@ class InveonImage:
     def process_multi_token_elements(self, token:str, line:str) -> None:
         if (token == "scan_time"):
             self.process_scan_time(line)
+        elif (token == "injection_time"):
+            self.process_injection_time(line)
         elif (token == "x_filter") :
             self.process_xyz_filter(line)
         elif (token == "y_filter"):
             self.process_xyz_filter(line)
         elif (token == "z_filter") :
             self.process_xyz_filter(line)
+        elif (token == "injected_compound"):
+            self.process_injected_compound(line)
+
+    def parse_inveon_date_foramt(self, line:str):
+        month_map = {
+            "Jan": "01",
+            "Feb": "02",
+            "Mar": "03",
+            "Apr": "04",
+            "May": "05",
+            "Jun": "06",
+            "Jul": "07",
+            "Aug": "08",
+            "Sep": "09",
+            "Oct": "10",
+            "Nov": "11",
+            "Dec": "12"}
+        tokens = line.split(' ')
+        day  = tokens[1]
+        mon  = tokens[2]
+        date = tokens[3]
+        time = tokens[4]
+        year = tokens[5]
+
+        date_string = year + month_map[mon] + date.zfill(2)
+        time_tokens = time.split(':')
+        time_string = time_tokens[0] + time_tokens[1] + time_tokens[2]
+
+        return date_string, time_string
 
     def process_scan_time(self, line:str) -> None:
         month_map = {
@@ -270,6 +302,12 @@ class InveonImage:
 
         self.metadata["scan_time_date"] = date_string
         self.metadata["scan_time_time"] = time_string
+
+    def process_injection_time(self, line:str) -> None:
+        date_string, time_string = self.parse_inveon_date_foramt(line)
+
+        self.metadata["injection_time_date"] = date_string
+        self.metadata["injection_time_time"] = time_string
 
     def process_xyz_filter(self, line:str) -> None:
         filter_map = {
@@ -314,4 +352,10 @@ class InveonImage:
                 image_comments = image_comments + "; " + new_filter_comments
             self.metadata["ImageComments"] = image_comments
 
+    def process_injected_compound(self, line:str) -> None:
+        tokens = line.split(' ')
 
+        separator=" "
+        compound = separator.join(tokens[1:])
+
+        self.metadata["injected_compound"] = compound

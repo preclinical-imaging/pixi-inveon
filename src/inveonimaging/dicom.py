@@ -43,6 +43,18 @@ class GeneralStudyModule:
     def get_dataset(self):
         return self.ds
 
+class PatientStudyModule:
+    def __init__(
+        self,
+        patients_weight):
+
+        self.ds = Dataset()
+        if (patients_weight is not None):
+            self.ds.PatientWeight       = patients_weight
+
+    def get_dataset(self):
+        return self.ds
+
 class GeneralSeriesModule:
     def __init__(
         self,
@@ -96,7 +108,9 @@ class PETSeriesModule:
         decay_correction,
         corrected_image,
         collimator_type,
-        number_of_time_slices
+        number_of_time_slices,
+        energy_window_lower_limit,
+        energy_window_upper_limit
     ):
 
         self.ds = Dataset()
@@ -112,6 +126,12 @@ class PETSeriesModule:
         if (number_of_time_slices is not None):
             self.ds.NumberOfTimeSlices = number_of_time_slices
 
+        if (energy_window_lower_limit is not None and energy_window_upper_limit is not None):
+            energy_window_range_dataset = Dataset()
+            energy_window_range_dataset.EnergyWindowLowerLimit = energy_window_lower_limit
+            energy_window_range_dataset.EnergyWindowUpperLimit = energy_window_upper_limit
+            self.ds.EnergyWindowRangeSequence = Sequence([energy_window_range_dataset])
+
     def get_dataset(self):
         return self.ds
 
@@ -119,13 +139,11 @@ class PETSeriesModule:
 class PETIsotopeModule:
     def __init__(
         self,
-        radionuclide_code_dataset):
+        radiopharmaceutical_information_dataset):
 
         self.ds = Dataset()
 
-        ds = Dataset()
-        ds.RadionuclideCodeSequence = Sequence([radionuclide_code_dataset])
-        self.ds.RadiopharmaceuticalInformationSequence = Sequence([ds])
+        self.ds.RadiopharmaceuticalInformationSequence = Sequence([radiopharmaceutical_information_dataset])
 
     def get_dataset(self):
         return self.ds
@@ -134,10 +152,12 @@ class NMPETPatientOrientation:
     def __init__(
         self,
         patient_orientation: Dataset,
-        patient_gantry_relationship: Dataset
+        patient_gantry_relationship: Dataset,
+        patient_orientation_modifier: Dataset
     ):
 
         self.ds = Dataset()
+        patient_orientation.PatientOrientationModifierCodeSequence = Sequence([patient_orientation_modifier])
         self.ds.PatientOrientationCodeSequence = Sequence([patient_orientation])
         self.ds.PatientGantryRelationshipCodeSequence = Sequence([patient_gantry_relationship])
 

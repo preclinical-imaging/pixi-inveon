@@ -9,6 +9,8 @@
 
 1. PET and CT: Will not syncrhonize the x,y,z positions and use a common Frame of Reference between the series.
 
+1. Hotel images: This software has no explicit support for multi-animal DICOM files.
+
 ## Open Issues (Priority Order)
 ### Larger Issues
 

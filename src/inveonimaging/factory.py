@@ -1,17 +1,19 @@
 from pathlib import Path
 import os
+import json
 import numpy
 from dateutil.parser import *
 from dateutil.tz import *
 from dateutil.relativedelta import *
 from datetime import *
+from decimal import Decimal
 
 import pydicom
 from pydicom.sequence import Sequence
 from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
 from pydicom.uid import generate_uid, UID
 from inveonimaging.inveon import InveonImage
-from inveonimaging.dicom import PatientModule, GeneralStudyModule, GeneralEquipmentModule, \
+from inveonimaging.dicom import PatientModule, GeneralStudyModule, PatientStudyModule, GeneralEquipmentModule, \
     EnhancedGeneralEquipmentModule, \
     GeneralSeriesModule, FrameOfReferenceModule, GeneralAcquisitionModule, \
     GeneralImageModule, ImagePlaneModule, ImagePixelModule, MultiframeFunctionalGroupsModule, \
@@ -29,7 +31,22 @@ class Factory:
         self.series_number      = 1
         self.instance_number    = 1
         self.file_prefix_map    = {}
+        self.code_table         = None
 
+    def import_code_table_file(self, path: str) -> None:
+        with open(path) as f:
+            d = json.load(f)
+            self.code_table = {}
+            for item in d:
+                print(item)
+                key = item["key"]
+                self.code_table[key] = item
+
+    def lookup_coded_value(self, key: str):
+        if self.code_table is not None:
+            return self.code_table[key]
+        else:
+            return None
     def get_series_number(self) -> int:
         return self.series_number
 
@@ -171,9 +188,9 @@ class Factory:
     def create_output_folder(self, folder: str, must_be_empty: bool) -> None:
         if (os.path.exists(folder)):
             if (not os.path.isdir(folder)):
-                raise Exception(f"The item identified by {folder} exists, but it is not a folder")
+                raise Exception(f'The item identified by {folder} exists, but it is not a folder')
             if (must_be_empty and (os.listdir(folder))):
-                raise Exception(f"The item identified by {folder} exists, but it is not empty")
+                raise Exception(f'The item identified by {folder} exists, but it is not empty')
         else:
             os.makedirs(folder, 0o777, True)
 
@@ -209,8 +226,7 @@ class Factory:
 
         # Study
         general_study = self.create_general_study_module(inveon_image)
-        # TODO Add Patient Study
-        patient_study = None
+        patient_study = self.create_patient_study_module(inveon_image)
         clinical_trial_study = None
 
         # Series
@@ -283,8 +299,7 @@ class Factory:
         clinical_trial_subject = None
         # Study
         general_study = self.create_general_study_module(inveon_image)
-        # TODO Add Patient Study
-        patient_study = None
+        patient_study = self.create_patient_study_module(inveon_image)
         clinical_trial_study = None
         # Series
         general_series = self.create_general_series_module(inveon_image)
@@ -360,8 +375,7 @@ class Factory:
         clin_trial_subject = None
 
         general_study = self.create_general_study_module(inveon_image)
-        # TODO Add Patient Study
-        patient_study = None
+        patient_study = self.create_patient_study_module(inveon_image)
         clin_trial_study = None
 
         general_series = self.create_general_series_module(inveon_image)
@@ -433,9 +447,7 @@ class Factory:
 
         # Study
         general_study = self.create_general_study_module(inveon_image)
-
-        # TODO Add Patient Study
-        patient_study = None
+        patient_study = self.create_patient_study_module(inveon_image)
         clinical_trial_study = None
 
         # Series
@@ -455,6 +467,8 @@ class Factory:
 
         # Acquisition
         general_acquisition = self.create_general_acquisition_module(inveon_image)
+#        acquisition_number = self.get_instance_number()
+#        general_acquisition.ds.AcquisitionNumber = acquisition_number
 
         # Image
         general_image = self.create_general_image_module(inveon_image)
@@ -513,8 +527,7 @@ class Factory:
         clin_trial_subject = None
 
         general_study = self.create_general_study_module(inveon_image)
-        # TODO Add Patient Study
-        patient_study = None
+        patient_study = self.create_patient_study_module(inveon_image)
         clin_trial_study = None
 
         # These are at the Series level in the IOD definition
@@ -584,8 +597,7 @@ class Factory:
         clin_trial_subject = None
 
         general_study = self.create_general_study_module(inveon_image)
-        # TODO Add Patient Study
-        patient_study = None
+        patient_study = self.create_patient_study_module(inveon_image)
         clin_trial_study = None
 
         # These are at the Series level in the IOD definition
@@ -666,6 +678,7 @@ class Factory:
 
         ds = Dataset()
         ds.InstanceNumber = self.get_instance_number()
+        ds.AcquisitionNumber = ds.InstanceNumber
         self.increment_instance_number()
 
         ds.SOPInstanceUID  = generate_uid()
@@ -728,6 +741,38 @@ class Factory:
                                study_description)
         return m
 
+
+    def create_patient_study_module(self, inveon_image: InveonImage) -> PatientStudyModule:
+        subject_weight_raw   = inveon_image.get_metadata_element("subject_weight")
+        subject_weight_units = inveon_image.get_metadata_element("subject_weight_units")
+        if (subject_weight_raw is None or subject_weight_units is None):
+            return PatientStudyModule(None)
+
+        # The units in DICOM are kg. Determine scale factor to calculate weight in kg.
+        # Reference https://www.google.com/search?client=firefox-b-1-d&q=convert+grams+to+kg
+        # 2025.03.17
+        scale_factor = 1.0
+        match subject_weight_units:
+            case "1":
+                # grams to kg
+                scale_factor = .001
+            case "2":
+                # Ounces to kg
+                scale_factor = 0.0283495
+            case "3":
+                # kg to kg
+                scale_factor = 1.0
+            case "4":
+                # pounds to kg
+                scale_factor = 0.4535920000001679
+            case _:
+                raise Exception(f"Unrecognized value for subject weight units {subject_weight_units}. Was expecting one of: 1, 2, 3, 4")
+
+        scaled_weight = float(subject_weight_raw) * scale_factor
+        patient_study = PatientStudyModule(scaled_weight)
+
+        return patient_study
+
     def create_general_series_module(self, inveon_image: InveonImage) -> GeneralSeriesModule:
         modality_mapped = inveon_image.get_metadata_element("modality_mapped")
         # Need to convert what INVEON thinks of as Modality to what DICOM thinks
@@ -770,10 +815,16 @@ class Factory:
         # TODO Can we determine this from metadata?
         collimator_type = ""
         number_of_time_slices = self.calculate_NumberOfTimeSlices(inveon_image)
+        energy_window_lower_limit = inveon_image.get_metadata_element("lld")
+        energy_window_upper_limit = inveon_image.get_metadata_element("uld")
+
+        energy_window_lower_limit = '%.2E' % Decimal(energy_window_lower_limit)
+        energy_window_upper_limit = '%.2E' % Decimal(energy_window_upper_limit)
 
         m = PETSeriesModule(series_date, series_time, units, counts_source, series_type,
                             number_of_slices, decay_correction, corrected_image, collimator_type,
-                            number_of_time_slices)
+                            number_of_time_slices,
+                            energy_window_lower_limit, energy_window_upper_limit)
 
         return m
 
@@ -783,6 +834,8 @@ class Factory:
 
         value_1 = ""
         match acquisition_mode:
+            case "2":
+                value_1 = "STATIC"
             case "3":
                 value_1 =  "DYNAMIC"
             case _:
@@ -791,6 +844,8 @@ class Factory:
 
         value_2 = ""
         match file_type:
+            case "2":
+                value_2 = "IMAGE"
             case "5":
                 value_2 = "IMAGE"
             case _:
@@ -864,22 +919,78 @@ class Factory:
         return m
 
     def create_pet_isotope_module(self, inveon_image: InveonImage) -> PETIsotopeModule:
-        radionuclide_code_dataset = self.calculate_RadionuclideCodeSequence(inveon_image)
-        m = PETIsotopeModule(radionuclide_code_dataset)
+#        radionuclide_code_dataset = self.calculate_PETRadionuclideCodeSequence(inveon_image)
+        radiopharmaceutical_information_dataset = self.calculate_PETRadiopharmaceuticalInformationSequence(inveon_image)
+        m = PETIsotopeModule(radiopharmaceutical_information_dataset)
 
         return m
 
+    def calculate_PETRadiopharmaceuticalInformationSequence(self, inveon_image: InveonImage) -> Dataset:
+        ds      = Dataset()
 
-    def calculate_RadionuclideCodeSequence(self, inveon_image: InveonImage) -> Dataset :
+        radionuclide_code_dataset = self.calculate_PETRadionuclideCodeDataset(inveon_image)
+        ds.RadionuclideCodeSequence = Sequence([radionuclide_code_dataset])
 
-       isotope = inveon_image.get_metadata_element("isotope")
-       ds      = Dataset()
-       if isotope == "F-18":
-           ds.CodeValue              = "C-111A1"
-           ds.CodingSchemeDesignator = "SNM3"
-           ds.CodeMeaning            = "^18^Fluorine"
+        radiopharmaceutical = inveon_image.get_metadata_element("injected_compound")
+        if (radiopharmaceutical is not None):
+            ds.Radiopharmaceutical = radiopharmaceutical
 
-       return ds
+        radiopharmaceutical_start_time = inveon_image.get_metadata_element("injection_time_time")
+        if (radiopharmaceutical_start_time is not None):
+            ds.RadiopharmaceuticalStartTime = radiopharmaceutical_start_time
+
+        radiopharmaceutical_start_date = inveon_image.get_metadata_element("injection_time_date")
+        if radiopharmaceutical_start_time is not None and radiopharmaceutical_start_date is not None:
+            ds.RadiopharmaceuticalStartDateTime = f"{radiopharmaceutical_start_date}{radiopharmaceutical_start_time}"
+
+        dose_raw = float(inveon_image.get_metadata_element("dose"))
+        dose_units = inveon_image.get_metadata_element("dose_units")
+        if (dose_raw is not None and dose_units is not None):
+            scale = 1.0
+            match dose_units:
+                case "0":
+                    scale = 1.0
+                case "1":
+                    scale = 37000000
+                case "2":
+                    scale = .000001
+                case _:
+                    raise Exception(
+                        f"Do not understand value for dose_units {dose_units}, expected one of: 0, 1, 2")
+
+            calculated_dose = dose_raw * scale
+            ds.RadionuclideTotalDose = '%.4E' % Decimal(calculated_dose)
+
+        isotope_half_life = inveon_image.get_metadata_element("isotope_half_life")
+        if isotope_half_life is not None:
+            half_life_string = '%.4E' % Decimal(float(isotope_half_life))
+            ds.RadionuclideHalfLife = half_life_string
+
+        isotope_branching_fraction = inveon_image.get_metadata_element("isotope_branching_fraction")
+        if isotope_branching_fraction is not None:
+            fraction_string = '%.4E' % Decimal(float(isotope_branching_fraction))
+            ds.RadionuclidePositronFraction = fraction_string
+
+        return ds
+
+    def calculate_PETRadionuclideCodeDataset(self, inveon_image: InveonImage) -> Dataset :
+
+        isotope = inveon_image.get_metadata_element("isotope")
+        ds      = Dataset()
+        self.map_to_RadionuclideCodeSequence(isotope)
+        d = self.lookup_coded_value(isotope)
+
+        if (d is not None):
+            ds.CodeValue              = d["code"]
+            ds.CodingSchemeDesignator = d["system"]
+            ds.CodeMeaning            = d["meaning"]
+
+
+        return ds
+
+    def map_to_RadionuclideCodeSequence(self, key: str):
+        d = self.lookup_coded_value(key)
+        print(d)
 
 
     def create_nm_patient_orientation_module(self, inveon_image: InveonImage) -> NMPETPatientOrientation:
@@ -888,12 +999,27 @@ class Factory:
         patient_orientation.CodingSchemeDesignator = "SCT"
         patient_orientation.CodeMeaning            = "Recumbent"
 
+        patient_orientation.CodeValue              = "F-10450"
+        patient_orientation.CodingSchemeDesignator = "99SDM"
+        patient_orientation.CodeMeaning            = "Recumbent"
+
         patient_gantry_relationship = Dataset()
+        patient_orientation_modifier = Dataset()
         subject_orientation = inveon_image.get_metadata_element("subject_orientation")
         if (subject_orientation in ["1", "3", "5", "7"]):
-            patient_gantry_relationship.CodeValue = "102541007"
-            patient_gantry_relationship.CodingSchemeDesignator = "SCT"
-            patient_gantry_relationship.CodeMeaning = "feet-first"
+#            patient_gantry_relationship.CodeValue = "102541007"
+#            patient_gantry_relationship.CodingSchemeDesignator = "SCT"
+#            patient_gantry_relationship.CodeMeaning = "feet-first"
+
+# look for 99SDM and fix
+            patient_gantry_relationship.CodeValue = "F-10480"
+            patient_gantry_relationship.CodingSchemeDesignator = "99SDM"
+            patient_gantry_relationship.CodeMeaning = "F-10480"
+
+            patient_orientation_modifier.CodeValue = "F-10340"
+            patient_orientation_modifier.CodingSchemeDesignator = "99SDM"
+            patient_orientation_modifier.CodeMeaning = "supine"
+
         elif (subject_orientation in ["2", "4", "6", "8"]):
             patient_gantry_relationship.CodeValue = "102540008"
             patient_gantry_relationship.CodingSchemeDesignator = "SCT"
@@ -901,7 +1027,7 @@ class Factory:
 
         # If neither of these, then leave as an empty sequence
 
-        m = NMPETPatientOrientation(patient_orientation, patient_gantry_relationship)
+        m = NMPETPatientOrientation(patient_orientation, patient_gantry_relationship, patient_orientation_modifier)
 
         return m
 
@@ -976,7 +1102,7 @@ class Factory:
         rtn = ""
         match subject_orientation:
             case "0":
-                return ""
+                return "-1\\0\\0\\0\\1\\0"
             case "3":
                 return "-1\\0\\0\\0\\1\\0"
             case _:
@@ -988,7 +1114,7 @@ class Factory:
         x_delta = 0
         y_delta = 0
         image_shift_ref = inveon_image.get_metadata_element("image_ref_shift")
-        if (image_shift_ref is not None):
+        if (image_shift_ref is not None and image_shift_ref != ""):
             tokens = image_shift_ref.split(" ")
             x_delta = float(tokens[1])
             y_delta = float(tokens[2])
@@ -1016,7 +1142,7 @@ class Factory:
         z_position = (float(index) + .5 - float(z_dimension)/2) * pixel_size_z
 
         image_shift_ref = inveon_image.get_metadata_element("image_ref_shift")
-        if (image_shift_ref is not None):
+        if (image_shift_ref is not None and image_shift_ref != ""):
             tokens = image_shift_ref.split(" ")
             z_delta = float(tokens[3])
             z_position = z_position + z_delta
