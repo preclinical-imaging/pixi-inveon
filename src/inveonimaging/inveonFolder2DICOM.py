@@ -93,14 +93,14 @@ if __name__ == '__main__':
         inveon_image: InveonImage = InveonImage(study_description, f).parse_header()
         output_folder: str = os.path.join(args.OutputFolder, str(series_number), "DICOM")
         if (args.multiframe) :
-#            print(f"Multiframe {f} {output_folder}")
+            print(f"Multiframe {f} {output_folder}")
             factory.convert_to_multiframe(inveon_image, output_folder, args.file)
         
         elif (args.legacyconverted):
-#            print (f"Legacy Converted {f} {output_folder}")
+            print (f"Legacy Converted {f} {output_folder}")
             factory.convert_to_legacy_converted_multiframe(inveon_image, output_folder, args.file)
         else:
-#            print (f"Standard SOP classes, single frame {f} {output_folder}")
+            print (f"Standard SOP classes, single frame {f} {output_folder}")
             factory.convert_to_standard_images(inveon_image, overrides, output_folder)
         
         factory.increment_series_number()
