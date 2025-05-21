@@ -4,7 +4,7 @@ from inveonimaging.inveon import InveonImage
 from inveonimaging.factory import Factory
 
 
-def find_img_files(input_folder: str):
+def find_img_files(input_folder: str, ignore_all_extra_files: bool, ignore_specific_extra_files: list):
     rtn = []
     for f in os.listdir(input_folder):
         full_path = os.path.join(input_folder, f)
@@ -22,8 +22,17 @@ def find_img_files(input_folder: str):
                     raise Exception(f"We found this .hdr file {full_path} with no corresponding .img file")
 
             else:
-                raise Exception(
-                    f"File {full_path} found with file extension {file_extension}. This program expects only .img and .hdr files in the folder")
+                raiseException = True
+                ignore_specific_extra_files_msg = ""
+                if (ignore_specific_extra_files):
+                    ignore_specific_extra_files_msg = ", ".join(ignore_specific_extra_files)
+                    if file_extension in ignore_specific_extra_files:
+                        raiseException = False
+                if ignore_all_extra_files:
+                    raiseException = False
+                if (raiseException):                
+                    raise Exception(
+                        f"File {full_path} found with file extension {file_extension}. This program expects only {ignore_specific_extra_files_msg} .img and .hdr  files in the folder")
         else:
             raise Exception(f"This program does not support nested folders {full_path}")
 
@@ -58,6 +67,9 @@ if __name__ == '__main__':
     parser.add_argument(      '--patientid',        dest='patient_id',        help="Set DICOM PatientID")
     parser.add_argument(      '--patientdob',       dest='patient_birthdate', help="Set DICOM PatientBirthDate")
     parser.add_argument(      '--patientsex',       dest='patient_sex',       help="Set DICOM PatientSex")
+    parser.add_argument(      '--ignoreAllExtraFiles', action='store_true', dest='ignore_all_extra_files',       help="Ignore presence of all files with extension other than .img and .hdr")
+    parser.add_argument(      '--ignoreFileWithExt',  action='append', dest='ignore_specific_extra_files',       help="Ignore presence of files with specific extension other than .img and .hdr")
+
     args = parser.parse_args()
     overrides = construct_overrides(args)
 
@@ -74,7 +86,7 @@ if __name__ == '__main__':
     if (args.study_description is not None):
         study_description = args.study_description
 
-    img_files = find_img_files(args.InveonFolder)
+    img_files = find_img_files(args.InveonFolder, args.ignore_all_extra_files, args.ignore_specific_extra_files)
     for f in img_files:
         series_number = factory.get_series_number()
 
