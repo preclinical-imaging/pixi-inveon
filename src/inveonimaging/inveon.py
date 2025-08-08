@@ -211,7 +211,7 @@ class InveonImage:
                           "recon_algorithm:6": "OSEM3D/MAP",
                           "recon_algorithm:7": "MAPTR for transmission image",
                           "recon_algorithm:8": "MAP 3D reconstruction",
-                          "recon_algorithm:9": "Feldkamp cone beam",
+                          "recon_algorithm:9": "Feldkamp Cone Beam",
 
                           "subject_orientation:0": "",
                           "subject_orientation:1": "FFP",
@@ -298,7 +298,7 @@ class InveonImage:
 
         date_string = year + month_map[mon] + date.zfill(2)
         time_tokens = time.split(':')
-        time_string = time_tokens[0] + time_tokens[1] + time_tokens[2]
+        time_string = time_tokens[0] + time_tokens[1] + time_tokens[2] + ".000000"
 
         self.metadata["scan_time_date"] = date_string
         self.metadata["scan_time_time"] = time_string

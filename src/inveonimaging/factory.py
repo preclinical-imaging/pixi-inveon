@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 import json
 import numpy
+import re
 from dateutil.parser import *
 from dateutil.tz import *
 from dateutil.relativedelta import *
@@ -13,7 +14,8 @@ from pydicom.sequence import Sequence
 from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
 from pydicom.uid import generate_uid, UID
 from inveonimaging.inveon import InveonImage
-from inveonimaging.dicom import PatientModule, GeneralStudyModule, PatientStudyModule, GeneralEquipmentModule, \
+from inveonimaging.inveon import InveonImage
+from inveonimaging.invdicom import PatientModule, GeneralStudyModule,  GeneralEquipmentModule, \
     EnhancedGeneralEquipmentModule, \
     GeneralSeriesModule, FrameOfReferenceModule, GeneralAcquisitionModule, \
     GeneralImageModule, ImagePlaneModule, ImagePixelModule, MultiframeFunctionalGroupsModule, \
@@ -21,7 +23,7 @@ from inveonimaging.dicom import PatientModule, GeneralStudyModule, PatientStudyM
     AcquisitionContextModule, FrameContentItem, \
     PETSeriesModule, PETIsotopeModule, NMPETPatientOrientation, \
     PETImageModule, EnhancedPETImageModule, CTImageModule, EnhancedCTImageModule, \
-    mergeDatasets, mergeDatasetsVerbose
+    mergeDatasets, mergeDatasetsVerbose, PatientStudyModule
 
 
 class Factory:
@@ -135,7 +137,7 @@ class Factory:
     def create_write_dicom_files_ct(self, inveon_image: InveonImage, overrides: {}, output_path: str):
 
         self.create_output_folder(output_path, True)
-        ct_common = self.create_ct_common_elements(inveon_image)
+        ct_common = self.create_ct_common_elements(inveon_image, overrides)
         self.reset_instance_number()
 
         z_dimension = int(inveon_image.get_metadata_element("z_dimension"))
@@ -151,7 +153,7 @@ class Factory:
     def create_write_dicom_files_pet(self, inveon_image: InveonImage, overrides: {}, output_path: str):
 
         self.create_output_folder(output_path, True)
-        pet_common = self.create_pet_common_elements(inveon_image)
+        pet_common = self.create_pet_common_elements(inveon_image, overrides)
         self.reset_instance_number()
 
         z_dimension = int(inveon_image.get_metadata_element("z_dimension"))
@@ -218,10 +220,10 @@ class Factory:
     # Create the elements that are common to all CT slices
     # A.3 CT Image IOD
     # https://dicom.nema.org/medical/dicom/current/output/html/part03.html#sect_A.3
-    def create_ct_common_elements(self, inveon_image: InveonImage) -> Dataset:
+    def create_ct_common_elements(self, inveon_image: InveonImage, overrides: {}) -> Dataset:
 
         # Patient
-        patient = self.create_patient_module(inveon_image)
+        patient = self.create_patient_module(inveon_image, overrides)
         clinical_trial_subject = None
 
         # Study
@@ -295,7 +297,7 @@ class Factory:
     def create_enhanced_ct_dataset(self, inveon_image: InveonImage) -> Dataset:
 
         # Patient
-        patient = self.create_patient_module(inveon_image)
+        patient = self.create_patient_module(inveon_image, {})
         clinical_trial_subject = None
         # Study
         general_study = self.create_general_study_module(inveon_image)
@@ -371,7 +373,7 @@ class Factory:
     # https://dicom.nema.org/medical/dicom/current/output/html/part03.html#sect_A.70
     def create_legacy_converted_enhanced_ct_dataset(self, inveon_image: InveonImage) -> Dataset:
 
-        patient = self.create_patient_module(inveon_image)
+        patient = self.create_patient_module(inveon_image, {})
         clin_trial_subject = None
 
         general_study = self.create_general_study_module(inveon_image)
@@ -440,9 +442,9 @@ class Factory:
     # Create the elements that are common to all PET slices
     # A.21 Positron Emission Tomography Image IOD
     # https://dicom.nema.org/medical/dicom/current/output/html/part03.html#sect_A.21
-    def create_pet_common_elements(self, inveon_image: InveonImage) -> Dataset:
+    def create_pet_common_elements(self, inveon_image: InveonImage, overrides: {}) -> Dataset:
         # Patient
-        patient = self.create_patient_module(inveon_image)
+        patient = self.create_patient_module(inveon_image, overrides)
         clinical_trial_subject = None
 
         # Study
@@ -523,7 +525,7 @@ class Factory:
     # https://dicom.nema.org/medical/dicom/current/output/html/part03.html#sect_A.56
     def create_enhanced_pet_dataset(self, inveon_image: InveonImage) -> Dataset:
 
-        patient = self.create_patient_module(inveon_image)
+        patient = self.create_patient_module(inveon_image, {})
         clin_trial_subject = None
 
         general_study = self.create_general_study_module(inveon_image)
@@ -593,7 +595,7 @@ class Factory:
     # https://dicom.nema.org/medical/dicom/current/output/html/part03.html#sect_A.72
     def create_legacy_converted_enhanced_pet_dataset(self, inveon_image: InveonImage) -> Dataset:
 
-        patient = self.create_patient_module(inveon_image)
+        patient = self.create_patient_module(inveon_image, {})
         clin_trial_subject = None
 
         general_study = self.create_general_study_module(inveon_image)
@@ -708,13 +710,22 @@ class Factory:
         image_pixel_module = self.create_image_pixel_module(inveon_image, True, False)
         return mergeDatasets(image_plane_module, image_pixel_module, ds)
 
-    def create_patient_module(self, inveon_image: InveonImage) -> PatientModule:
+    def create_patient_module(self, inveon_image: InveonImage, overrides: {}) -> PatientModule:
 
         # TODO Replace with real values
         patient_name = ""
         patient_id   = ""
         patient_dob  = ""
-        patient_sex  = ""
+        patient_sex  = inveon_image.get_metadata_element("subject_sex")
+
+        if (not patient_name):
+            patient_name = overrides["patient_name"]
+        if (not patient_id):
+            patient_id = overrides["patient_id"]
+        if (not patient_dob):
+            patient_dob = overrides["patient_birthdate"]
+        if (not patient_sex):
+            patient_sex = overrides["patient_sex"]
 
         m = PatientModule(patient_name,patient_id,patient_dob,patient_sex)
         return m
@@ -744,7 +755,7 @@ class Factory:
 
     def create_patient_study_module(self, inveon_image: InveonImage) -> PatientStudyModule:
         subject_weight_raw   = inveon_image.get_metadata_element("subject_weight")
-        subject_weight_units = inveon_image.get_metadata_element("subject_weight_units")
+        subject_weight_units = str(inveon_image.get_metadata_element("subject_weight_units"))
         if (subject_weight_raw is None or subject_weight_units is None):
             return PatientStudyModule(None)
 
@@ -753,6 +764,9 @@ class Factory:
         # 2025.03.17
         scale_factor = 1.0
         match subject_weight_units:
+            case "0":
+                # Unknown units
+                scale_factor = 1.0
             case "1":
                 # grams to kg
                 scale_factor = .001
@@ -959,17 +973,17 @@ class Factory:
                         f"Do not understand value for dose_units {dose_units}, expected one of: 0, 1, 2")
 
             calculated_dose = dose_raw * scale
-            ds.RadionuclideTotalDose = '%.4E' % Decimal(calculated_dose)
+            ds.RadionuclideTotalDose = self.adjust_scientific_notation_no_plus_sign('%.4E' % Decimal(calculated_dose))
 
         isotope_half_life = inveon_image.get_metadata_element("isotope_half_life")
         if isotope_half_life is not None:
             half_life_string = '%.4E' % Decimal(float(isotope_half_life))
-            ds.RadionuclideHalfLife = half_life_string
+            ds.RadionuclideHalfLife = self.adjust_scientific_notation_no_plus_sign(half_life_string)
 
         isotope_branching_fraction = inveon_image.get_metadata_element("isotope_branching_fraction")
         if isotope_branching_fraction is not None:
             fraction_string = '%.4E' % Decimal(float(isotope_branching_fraction))
-            ds.RadionuclidePositronFraction = fraction_string
+            ds.RadionuclidePositronFraction = self.adjust_scientific_notation_no_plus_sign(fraction_string)
 
         return ds
 
@@ -1078,11 +1092,15 @@ class Factory:
         return m
 
     def create_image_plane_module(self, inveon_image: InveonImage, index=0) -> ImagePlaneModule:
-        pixel_spacing_row = inveon_image.get_metadata_element("pixel_size_y")
-        pixel_spacing_col = inveon_image.get_metadata_element("pixel_size_x")
+        pixel_spacing_row = self.calculate_PixelSpacingXorY(inveon_image, "pixel_size_y")
+        pixel_spacing_col = self.calculate_PixelSpacingXorY(inveon_image, "pixel_size_x")
+  #          inveon_image.get_metadata_element("pixel_size_y")
+  #
+#        pixel_spacing_col = inveon_image.get_metadata_element("pixel_size_x")
         image_orientation_patient = self.calculate_ImageOrientationPatient(inveon_image)
         image_position_patient = self.calculate_ImagePositionPatient(inveon_image, index)
-        slice_thickness = inveon_image.get_metadata_element("pixel_size_z")
+#        slice_thickness = inveon_image.get_metadata_element("pixel_size_z")
+        slice_thickness = self.calculate_SliceThickness(inveon_image, index)
         slice_location = self.calculate_SliceLocation(inveon_image, index)
 
         print(f"Create Image Plane index {index} Slice location {slice_location}")
@@ -1103,6 +1121,8 @@ class Factory:
         match subject_orientation:
             case "0":
                 return "-1\\0\\0\\0\\1\\0"
+            case "2":
+                return "-1\\0\\0\\0\\-1\\0"
             case "3":
                 return "-1\\0\\0\\0\\1\\0"
             case _:
@@ -1111,6 +1131,7 @@ class Factory:
 
     # index numbers from 0
     def calculate_ImagePositionPatient(self, inveon_image: InveonImage, index: int) -> str:
+        subject_orientation = inveon_image.get_metadata_element("subject_orientation")
         x_delta = 0
         y_delta = 0
         image_shift_ref = inveon_image.get_metadata_element("image_ref_shift")
@@ -1130,9 +1151,119 @@ class Factory:
         y_position = -(((float(y_dimension)-1)/2.0 * pixel_size_y) - y_delta)
 
         # Because we already do this calculation, reuse the code
-        z_position = self.calculate_SliceLocation(inveon_image, index)
+        z_position = self.calculate_SliceLocationFloat(inveon_image, index)
 
-        return f"{x_position:.6f}\\{y_position:.6f}\\{z_position}"
+        if (subject_orientation == "2"):
+            y_position = - y_position
+            z_position = - z_position
+
+        x_posit_sci_notation = '%.7E' % Decimal(x_position)
+        y_posit_sci_notation = '%.7E' % Decimal(y_position)
+        z_posit_sci_notation = '%.7E' % Decimal(z_position)
+
+        x_posit = self.adjust_scientific_notation(x_posit_sci_notation)
+        y_posit = self.adjust_scientific_notation(y_posit_sci_notation)
+        z_posit = self.adjust_scientific_notation(z_posit_sci_notation)
+
+        x_posit = self.adjust_scientific_notation_no_plus_sign(x_posit)
+        y_posit = self.adjust_scientific_notation_no_plus_sign(y_posit)
+        z_posit = self.adjust_scientific_notation_no_plus_sign(z_posit)
+
+#        x_posit = x_posit_sci_notation
+#        y_posit = y_posit_sci_notation
+
+        return f"{x_posit}\\{y_posit}\\{z_posit}"
+
+
+    # If expression ends in 'E-0', return as is
+    # Otherwise, replace E-0 with E-1
+    # The example is 1.233E-01 -> 1.233E-1
+    def adjust_scientific_notation_no_plus_sign(self, expression: str) -> str:
+        print(f"no plus {expression}")
+        if re.search('E\\+0$', expression):
+            x = re.sub('E\\+0', 'E0', expression)
+            print(f"case 1  {x}")
+            return re.sub('E\\+0', 'E0', expression)
+        elif re.search('E\\+0', expression):
+            x = re.sub('E\\+0', 'E', expression)
+            print(f"case 2 {x}")
+            return re.sub('E\\+0', 'E', expression)
+        elif re.search('E\\+', expression):
+            x = re.sub('E\\+', 'E', expression)
+            print(f"case 3 {x}")
+            return re.sub('E\\+', 'E', expression)
+        else:
+            print(f"case 4 {expression}")
+            return expression
+
+
+    # If expression ends in 'E-0', return as is
+    # Otherwise, replace E-0 with E-1
+    # The example is 1.233E-01 -> 1.233E-1
+    def adjust_scientific_notation(self, expression: str) -> str:
+        #print(f"Adjust {expression}")
+        if re.search("E-0$", expression):
+            #print("Trigger E-0$")
+            return expression
+
+        elif re.search("E+0$", expression):
+            #print("Trigger E+0$")
+            return expression
+
+        elif re.search("E-0", expression):
+            #print(f"E-0 expression {expression} converted {re.sub('E-0', 'E-', expression)}")
+            return re.sub('E-0', 'E-', expression)
+
+        elif re.search('E\\+0', expression):
+            #print(f"E+0 expression {expression} converted {re.sub('E\\+0', 'E+', expression)}")
+            return re.sub('E\\+0', 'E+', expression)
+
+        else:
+            #print(f"Expression did not trigger change {expression}")
+            return expression
+
+    def trim_trailing_zero(self, expression: str) -> str:
+        if re.search('[0-9]{5}0E', expression):
+            expression = re.sub('0E', 'E', expression)
+        return expression
+
+    def calculate_KVP(self, inveon_image: InveonImage) -> str:
+        ct_xray_voltage = inveon_image.get_metadata_element("ct_xray_voltage")
+        kvp = '%.0E' % Decimal(ct_xray_voltage)
+        return self.adjust_scientific_notation_no_plus_sign(kvp)
+
+    def calculate_detector_distance(self, inveon_image: InveonImage, inveon_field: str) -> str:
+        distance_in_cm = inveon_image.get_metadata_element(inveon_field)
+        if distance_in_cm is not None:
+            distance_in_mm = float(distance_in_cm) * 10
+            distance_in_mm_str = '%.4E' % Decimal(distance_in_mm)
+            return self.adjust_scientific_notation_no_plus_sign(distance_in_mm_str)
+        else:
+            return distance_in_cm
+
+    def calculate_PixelSpacingXorY(self, inveon_image: InveonImage, inveon_field:str) -> str:
+        spacing = inveon_image.get_metadata_element(inveon_field)
+        spacing_in_scientific_notation = '%.6E' % Decimal(spacing)
+        expression = self.adjust_scientific_notation(spacing_in_scientific_notation)
+        return self.trim_trailing_zero(expression)
+    def calculate_SliceThickness(self, inveon_image: InveonImage, index:int) -> str:
+        pixel_size_z = inveon_image.get_metadata_element("pixel_size_z")
+        slice_thickness = '%.5E' % Decimal(pixel_size_z)
+        return self.adjust_scientific_notation(slice_thickness)
+
+    # index numbers from 0
+    def calculate_SliceLocationFloat(self, inveon_image: InveonImage, index: int) -> float:
+        pixel_size_z = float(inveon_image.get_metadata_element("pixel_size_z"))
+        z_dimension = inveon_image.get_metadata_element("z_dimension")
+        z_position = (float(index) + .5 - float(z_dimension)/2) * pixel_size_z
+
+        image_shift_ref = inveon_image.get_metadata_element("image_ref_shift")
+        if (image_shift_ref is not None and image_shift_ref != ""):
+            tokens = image_shift_ref.split(" ")
+            z_delta = float(tokens[3])
+            z_position = z_position + z_delta
+
+        return z_position
 
 
     # index numbers from 0
@@ -1147,7 +1278,12 @@ class Factory:
             z_delta = float(tokens[3])
             z_position = z_position + z_delta
 
-        return f"{z_position:.6f}"
+        z_posit_sci_notation = '%.7E' % Decimal(z_position)
+        z_posit = self.adjust_scientific_notation(z_posit_sci_notation)
+        z_posit = self.adjust_scientific_notation_no_plus_sign(z_posit)
+#       z2_posit = self.trim_trailing_zero(z1_posit)
+
+        return z_posit
 
     def create_image_pixel_module(self, inveon_image: InveonImage, include_pixels=True,
                                   include_all_pixels=True, time_index=0) -> ImagePixelModule:
@@ -1301,20 +1437,24 @@ class Factory:
         return m
 
     def create_ct_image_module(self, inveon_image: InveonImage) -> CTImageModule:
-        kvp = inveon_image.get_metadata_element("ct_xray_voltage")
+        kvp = self.calculate_KVP(inveon_image)
 
-        ct_source_to_detector = inveon_image.get_metadata_element("ct_source_to_detector")
-        if (ct_source_to_detector != None and ct_source_to_detector != ""):
-            distance_source_to_detector = float(ct_source_to_detector) * 10  # Convert from cm to mm
-        else:
-            distance_source_to_detector = None
+        distance_source_to_detector = self.calculate_detector_distance(inveon_image, "ct_source_to_detector")
+        distance_source_to_patient  = self.calculate_detector_distance(inveon_image, "ct_source_to_crot")
 
-        ct_source_to_crot = inveon_image.get_metadata_element("ct_source_to_crot")
-        if (ct_source_to_crot != None and ct_source_to_crot != ""):
-            distance_source_to_patient = float(ct_source_to_crot) * 10  # Convert from cm to mm
-        else:
-            distance_source_to_patient = None
 
+#        ct_source_to_detector = inveon_image.get_metadata_element("ct_source_to_detector")
+#        if (ct_source_to_detector != None and ct_source_to_detector != ""):
+#            distance_source_to_detector = float(ct_source_to_detector) * 10  # Convert from cm to mm
+#        else:
+#            distance_source_to_detector = None
+#
+#        ct_source_to_crot = inveon_image.get_metadata_element("ct_source_to_crot")
+#        if (ct_source_to_crot != None and ct_source_to_crot != ""):
+#            distance_source_to_patient = float(ct_source_to_crot) * 10  # Convert from cm to mm
+#        else:
+#            distance_source_to_patient = None
+#
         # XRay Tube Current is expressed in mA in the DICOM Standard but in uA in Inveon files
         # If we calculate 0 mA, then we will set the xray_tube_current to None so that it is
         # not included in the DICOM image
@@ -1335,6 +1475,19 @@ class Factory:
         rescale_intercept = 0
         rescale_slope = 1
         acquisition_number = "1"
+
+        scan_options = "ACQ MODE " + inveon_image.get_metadata_element("acquisition_mode")
+
+        rotation_direction = None
+        rotation_direction_inveon = inveon_image.get_metadata_element("rotation_direction")
+        if rotation_direction_inveon is not None:
+            if rotation_direction_inveon == "0":
+                rotation_direction = "CW"
+            elif rotation_direction_inveon == "1":
+                rotation_direction = "CC"
+
+        exposure_time = inveon_image.get_metadata_element("ct_exposure_time")
+
         m = CTImageModule(
             image_type_1,
             image_type_2,
@@ -1346,7 +1499,10 @@ class Factory:
             distance_source_to_patient,
             xray_tube_current,
             acquisition_number,
-            recon_algorithm)
+            recon_algorithm,
+            scan_options,
+            rotation_direction,
+            exposure_time)
         return m
 
     def create_enhanced_ct_image_module(self, inveon_image: InveonImage) -> EnhancedCTImageModule:
@@ -1364,7 +1520,7 @@ class Factory:
         volumetric_properties = "VOLUME"
         volume_based_calculation_technique = "NONE"
 
-        kvp = inveon_image.get_metadata_element("ct_xray_voltage")
+        kvp = self.calculate_KVP(inveon_image)
 
         ct_source_to_detector = inveon_image.get_metadata_element("ct_source_to_detector")
         if (ct_source_to_detector != None and ct_source_to_detector != ""):
