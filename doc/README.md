@@ -8,6 +8,9 @@ Siemens provides a workstation with software that will convert to DICOM, but the
 
 The primary purpose of this software is to convert the Inveon proprietary data to DICOM images.
 
+We have notes on the conversion process in [Specifications for Inveon to DICOM Conversion
+](conversion_specifications.md)
+
 ## Conversion Considerations
 
 The Inveon scanner produces 3D CT volumes and 4D PET data. This software is written with options to allow the user to create output files using these DICOM SOP Classes:
@@ -28,8 +31,10 @@ The Inveon scanner produces 3D CT volumes and 4D PET data. This software is writ
 2. While in the early stages of development, the package is installed at test.pypi.org.
 
 ```
-pip install -v  pydicom
-pip install -v -i https://test.pypi.org/simple/ inveonimaging
+pip3 install -v pydicom
+pip3 install -v numpy
+pip3 install -v python-dateutil
+pip3 install -v -i https://test.pypi.org/simple/ inveonimaging
 ```
 
 # Usage
@@ -46,7 +51,12 @@ pip install -v -i https://test.pypi.org/simple/ inveonimaging
 
 ```
 python3 -m inveonimaging.inveonFolder2DICOM --help
-usage: inveonFolder2DICOM.py [-h] [-c CT_PREFIX] [-p PET_PREFIX] [-f FILE] [-l] [-m] InveonFolder OutputFolder
+usage: inveonFolder2DICOM.py [-h] [-C CODE_TABLE] 
+        [-c CT_PREFIX] [-p PET_PREFIX] [-f FILE] [-l] [-m] [-s STUDY_DESCRIPTION]
+        [--patientname PATIENT_NAME] [--patientid PATIENT_ID]
+        [--patientdob PATIENT_BIRTHDATE] [--patientsex PATIENT_SEX]
+        [--ignoreAllExtraFiles] [--ignoreFileWithExt IGNORE_SPECIFIC_EXTRA_FILES]
+        InveonFolder OutputFolder
 
 Inveon native .img/.hdr file to DICOM original
 
@@ -56,6 +66,8 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
+  -C CODE_TABLE, --codetable CODE_TABLE
+                        JSON file with code table
   -c CT_PREFIX, --ct CT_PREFIX
                         Prefix for a CT file
   -p PET_PREFIX, --pet PET_PREFIX
@@ -63,7 +75,43 @@ options:
   -f FILE, --file FILE  Name of output file for multiframe output
   -l, --legacyconverted
   -m, --multiframe
+  -s STUDY_DESCRIPTION, --studydescription STUDY_DESCRIPTION
+                        Set DICOM StudyDescription
+  --patientname PATIENT_NAME
+                        Set DICOM PatientName
+  --patientid PATIENT_ID
+                        Set DICOM PatientID
+  --patientdob PATIENT_BIRTHDATE
+                        Set DICOM PatientBirthDate
+  --patientsex PATIENT_SEX
+                        Set DICOM PatientSex
+  --ignoreAllExtraFiles
+                        Ignore presence of all files with extension other than .img and .hdr
+  --ignoreFileWithExt IGNORE_SPECIFIC_EXTRA_FILES
+                        Ignore presence of files with specific extension other than .img and .hdr
 
+
+```
+** Code Table **
+The program uses a JSON file to translate from data entered at the console to the coded value in the DICOM file in (0054,0013) EnergyWindowRangeSequence / >(0054,0300) RadionuclideCodeSequence.
+The value entered at the console is likely from local practice. This table maps to standard values.
+
+This is an example of such a mapping file. The value for "key" is what is entered at the console. The fields code, meaning, system map to DICOM elements in the (0054,0300) RadionuclideCodeSequence.
+```
+[
+  {"key": "Cu-64", "code": "C-127A2", "meaning": "^64^Copper",   "system": "SNM3"},
+  {"key": "F-18",  "code": "C-111A1", "meaning": "^18^Fluorine", "system": "SNM3"},
+  {"key": "Ga-68", "code": "C-131A3", "meaning": "^68^Gallium",  "system": "SNM3"},
+  {"key": "O-15",  "code": "C-B1038", "meaning": "^15^Oxygen",   "system": "SNM3"}
+]
+```
+If the value "O-15" is entered at the console, the coded values in the DICOM header will be:
+```
+(0054,0016) SQ RadiopharmaceuticalInformationSequence
+>  (0054,0300) SQ RadionuclideCodeSequence
+>>   (0008,0100) SH #8 [C-B1038] CodeValue
+>>   (0008,0102) SH #4 [SNM3] CodingSchemeDesignator
+>>   (0008,0104) LO #10 [^15^Oxygen] CodeMeaning
 ```
 
 **Example With CT and PET Scans**
@@ -83,4 +131,6 @@ This produces (where xxxxxx is the generated DICOM Intance Number)
 
 
 # Notes
-* There are known [issues](issues.md)
+* There are known issues listed in [Specifications for Inveon to DICOM Conversion
+](conversion_specifications.md)
+
