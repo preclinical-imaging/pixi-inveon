@@ -6,7 +6,6 @@
     "version": "0.0.10",
     "schema-version": "1.0",
     "type": "docker",
-    "image": "xnat/pixi-inveon2dicom:v1",
     "command-line": "python3 -m inveonimaging.inveonFolder2DICOM [CODE_TABLE] [CT_PREFIX] [PET_PREFIX] [FILE] [LEGACY_CONVERTED] [MULTI_FRAME] [STUDY_DESCRIPTION] [PATIENT_NAME] [PATIENT_ID] [PATIENT_DOB] [PATIENT_SEX] [IGNORE_ALL_EXTRA_FILES] [IGNORE_FILE_WITH_EXT] /input/INVEON /output",
     "mounts": [
         {
